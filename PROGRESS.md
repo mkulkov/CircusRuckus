@@ -488,9 +488,10 @@ Planned:
 
 ### 2026-09-13 — VK Mini Apps publication distribution
 
-- Prepared a standalone release package in `builds/vk-mini-apps-2026-09-13/` with a clean Godot Web payload, a root-level ZIP, VK hosting configuration template, publication texts, upload materials and SHA-256 manifest.
+- Prepared a standalone release package in `builds/vk-mini-apps-delivery-2026-09-13/` with clean Web and cabinet-material ZIPs, a VK hosting configuration template, publication texts and SHA-256 manifest. The unpacked export workspace remains separate under `builds/vk-mini-apps-2026-09-13/` and is not the delivery artifact.
 - Kept gameplay code and the `Web - Yandex Games` preset unchanged. The only project configuration change narrows the `Web - VK Mini Apps` export filter so tests, tools, promotional folders and the monetization demo video are not embedded in the production PCK.
 - Rechecked the official VK Bridge package (`3.0.2`) and official `vk-miniapps-deploy` package (`1.0.2`) on 13 September 2026. Direct `dev.vk.ru` pages were blocked to the automated browser, so authenticated cabinet field limits, moderation and production hosting remain manual release gates.
+- Added the supplied VK Mini App ID `54768735` to the delivery's ready-to-use `vk-hosting-config.json`; no access token or credential is stored in the package.
 
 ---
 

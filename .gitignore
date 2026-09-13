@@ -9,6 +9,9 @@
 /reports/
 /verification/
 
+# Local deployment dependencies
+/tools/vk-deploy/node_modules/
+
 # OS and IDE files
 .DS_Store
 Thumbs.db
