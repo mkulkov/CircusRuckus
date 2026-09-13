@@ -486,6 +486,12 @@ Planned:
 - All eight files are RGB JPEG at 2560×1440 (16:9). The portrait foreground is uniformly scaled and centered without cropping or non-uniform stretching; the side background is a blurred, darkened derivative of the same source capture.
 - Visual review confirmed that each source screen, including the Russian and English localized splash titles, is complete and readable. The no-crop layout leaves the sharp foreground at 31.6% of the frame, so it is not claimed to independently satisfy Yandex Games' 70%-real-gameplay area requirement for Desktop uploads.
 
+### 2026-09-13 — VK Mini Apps publication distribution
+
+- Prepared a standalone release package in `builds/vk-mini-apps-2026-09-13/` with a clean Godot Web payload, a root-level ZIP, VK hosting configuration template, publication texts, upload materials and SHA-256 manifest.
+- Kept gameplay code and the `Web - Yandex Games` preset unchanged. The only project configuration change narrows the `Web - VK Mini Apps` export filter so tests, tools, promotional folders and the monetization demo video are not embedded in the production PCK.
+- Rechecked the official VK Bridge package (`3.0.2`) and official `vk-miniapps-deploy` package (`1.0.2`) on 13 September 2026. Direct `dev.vk.ru` pages were blocked to the automated browser, so authenticated cabinet field limits, moderation and production hosting remain manual release gates.
+
 ---
 
 ## Decisions log
