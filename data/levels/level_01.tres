@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="LevelConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/level_config.gd" id="1_config"]
+
+[resource]
+script = ExtResource("1_config")
+level_id = 1
+display_name = "Введение"
+duration = 60.0
+target_score = 150
+spawn_interval_min = 0.25
+spawn_interval_max = 0.31
+max_active_characters = 1
+fast_weight = 1.0
+golden_weight = 1.0
+bomb_weight = 1.0
+clock_weight = 1.0
+glutton_weight = 1.0
+drunk_weight = 1.0
+normal_visible_time = 0.75

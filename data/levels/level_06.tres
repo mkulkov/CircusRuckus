@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="LevelConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/level_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+level_id = 6
+display_name = "Бомба"
+target_score = 350
+required_max_combo = 5
+spawn_interval_min = 0.17
+spawn_interval_max = 0.23
+max_active_characters = 2
+normal_weight = 78.0
+bomb_weight = 22.0
+fast_weight = 1.0
+golden_weight = 1.0
+clock_weight = 1.0
+glutton_weight = 1.0
+drunk_weight = 1.0
+normal_visible_time = 0.475
+bomb_visible_time = 0.5

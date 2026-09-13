@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="LevelConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/level_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+level_id = 9
+display_name = "Финал"
+target_score = 500
+required_max_combo = 8
+spawn_interval_min = 0.13
+spawn_interval_max = 0.19
+max_active_characters = 2
+double_spawn_chance = 0.5
+normal_weight = 43.0
+fast_weight = 18.0
+golden_weight = 8.0
+bomb_weight = 10.0
+clock_weight = 5.0
+glutton_weight = 9.0
+drunk_weight = 7.0
+normal_visible_time = 0.425
+fast_visible_time = 0.25
+golden_visible_time = 0.35
+bomb_visible_time = 0.425
+clock_visible_time = 0.425
+glutton_visible_time = 0.475
+drunk_visible_time = 0.45
+max_clock_spawns = 3

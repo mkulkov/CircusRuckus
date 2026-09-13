@@ -1,0 +1,57 @@
+keys,en,ru
+GAME_TITLE_LINE_1,CIRCUS,ЦИРКОВОЙ
+GAME_TITLE_LINE_2,RUCKUS,ПЕРЕПОЛОХ
+MENU_PLAY,PLAY,ИГРАТЬ
+MENU_LEVELS,LEVELS,УРОВНИ
+MENU_SETTINGS,SETTINGS,НАСТРОЙКИ
+MENU_ABOUT,ABOUT,ОБ ИГРЕ
+MENU_SUBTITLE,A CHEERFUL CIRCUS GAME,ВЕСЁЛАЯ ЦИРКОВАЯ ИГРА
+ABOUT_TEXT,"CIRCUS RUCKUS\nA cheerful circus game","ЦИРКОВОЙ ПЕРЕПОЛОХ\nВесёлая цирковая игра"
+CLOSE,CLOSE,ЗАКРЫТЬ
+BACK,BACK,НАЗАД
+LEVEL_SELECT_TITLE,SELECT LEVEL,ВЫБОР УРОВНЯ
+LOCKED,LOCKED,ЗАМОК
+MUSIC,MUSIC,МУЗЫКА
+SOUNDS,SOUNDS,ЗВУКИ
+HAPTICS,VIBRATION,ВИБРАЦИЯ
+DONE,DONE,ГОТОВО
+PAUSE,Pause,Пауза
+PAUSE_TITLE,PAUSED,ПАУЗА
+PAUSE_MESSAGE,Game paused,Игра остановлена
+RESUME,RESUME,ПРОДОЛЖИТЬ
+RESTART,RESTART,НАЧАТЬ ЗАНОВО
+RETRY,RETRY,ПОВТОРИТЬ
+PLAY_AGAIN,PLAY AGAIN,ЕЩЁ РАЗ
+MENU,MENU,МЕНЮ
+NEXT,NEXT,ДАЛЬШЕ
+LEVEL_COMPLETE,LEVEL COMPLETE!,УРОВЕНЬ ПРОЙДЕН!
+LEVEL_FAILED,TRY AGAIN!,НЕ ПОЛУЧИЛОСЬ!
+SCORE_VALUE,Score: %d,Очки: %d
+BEST_COMBO_VALUE,Best combo: x%d,Лучшее комбо: x%d
+TARGET_VALUE,Target: %d,Цель: %d
+PROGRESS_NOT_SAVED,PROGRESS NOT SAVED,ПРОГРЕСС НЕ СОХРАНЁН
+LEVEL_VALUE,LEVEL %d,УРОВЕНЬ %d
+SCORE,SCORE,ОЧКИ
+COMBO,COMBO,КОМБО
+GOLD_VALUE,GOLD %d/%d,ЗОЛОТО %d/%d
+CONFUSION_VALUE,CONFUSION %d,ПУТАНИЦА %d
+HAMMER_CONFUSED,WRONG BOX!,МОЛОТОК СБИЛСЯ!
+MISS_LIFE,MISS! -1 LIFE,ПРОМАХ! -1 ЖИЗНЬ
+SECONDS_BONUS,+10 SEC,+10 СЕК
+LIFE_BONUS,+1 LIFE,+1 ЖИЗНЬ
+FULL,FULL,ПОЛНО
+HINT_CLOCK,"Clock: +10 seconds, but resets combo.","Часы: +10 секунд, но комбо сбросится."
+HINT_GLUTTON,Glutton restores an apple. Do not let him escape!,Обжора вернёт яблоко. Не упусти его!
+HINT_DRUNK,Do not hit Drunk: the next strike will be random.,Не бей Пьяницу: следующий удар станет случайным.
+HINT_TAP,Tap the clown!,Тапни по клоуну!
+HINT_BOMB,BOMB! DO NOT HIT!,БОМБА! НЕ БЕЙ!
+GOLD_BONUS,+10 GOLD!,+10 ЗОЛОТО!
+BOMB_LIFE,BOMB! -1 APPLE,БОМБА! -1 ЯБЛОКО
+TIME_LIMIT,TIME LIMIT,ЛИМИТ ВРЕМЕНИ
+APPLE_BONUS,+1 APPLE,+1 ЯБЛОКО
+APPLES_FULL,APPLES FULL,ЯБЛОКИ ПОЛНЫ
+CONFUSION_STRIKES,CONFUSION: %d STRIKE,ПУТАНИЦА: %d УДАР
+GLUTTON_ESCAPED,GLUTTON ESCAPED,ОБЖОРА УБЕЖАЛ
+CLOCK_ESCAPED,CLOCK MISSED,ЧАСЫ УШЛИ
+BONUS_MISSED,BONUS MISSED,МИМО БОНУСА
+REMOVE_ADS,DISABLE ADS,ОТКЛЮЧИТЬ РЕКЛАМУ

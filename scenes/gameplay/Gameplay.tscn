@@ -1,0 +1,72 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/gameplay.gd" id="1_gameplay"]
+[ext_resource type="Script" path="res://scripts/ui/gameplay_background.gd" id="2_background"]
+[ext_resource type="Script" path="res://scripts/gameplay/board_controller.gd" id="3_board"]
+[ext_resource type="Script" path="res://scripts/gameplay/spawn_director.gd" id="4_spawn"]
+[ext_resource type="Script" path="res://scripts/gameplay/hammer_controller.gd" id="5_hammer"]
+[ext_resource type="Script" path="res://scripts/gameplay/game_controller.gd" id="6_game"]
+[ext_resource type="Script" path="res://scripts/ui/gameplay_hud.gd" id="7_hud"]
+[ext_resource type="PackedScene" path="res://scenes/ui/SessionOverlay.tscn" id="8_overlay"]
+[ext_resource type="Script" path="res://scripts/save/save_manager.gd" id="9_save"]
+
+[node name="Gameplay" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_gameplay")
+
+[node name="Background" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_background")
+
+[node name="BoardController" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_board")
+
+[node name="SpawnDirector" type="Node" parent="."]
+script = ExtResource("4_spawn")
+
+[node name="HammerController" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_hammer")
+
+[node name="HUD" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("7_hud")
+
+[node name="GameController" type="Node" parent="."]
+process_mode = 3
+script = ExtResource("6_game")
+
+[node name="SaveManager" type="Node" parent="."]
+script = ExtResource("9_save")
+
+[node name="SessionOverlay" parent="." instance=ExtResource("8_overlay")]

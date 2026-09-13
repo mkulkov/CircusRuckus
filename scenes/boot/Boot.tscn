@@ -1,0 +1,25 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/navigation/scene_router.gd" id="1_router"]
+[ext_resource type="Script" path="res://scripts/save/save_manager.gd" id="2_save"]
+[ext_resource type="PackedScene" path="res://scenes/ui/SettingsOverlay.tscn" id="3_settings"]
+[ext_resource type="Script" path="res://scripts/audio/audio_manager.gd" id="4_audio"]
+[ext_resource type="Script" path="res://scripts/platform/localization_manager.gd" id="5_localization"]
+[ext_resource type="Script" path="res://scripts/monetization/monetization_service.gd" id="6_monetization"]
+
+[node name="Boot" type="Node"]
+script = ExtResource("1_router")
+
+[node name="LocalizationManager" type="Node" parent="."]
+script = ExtResource("5_localization")
+
+[node name="SaveManager" type="Node" parent="."]
+script = ExtResource("2_save")
+
+[node name="SettingsOverlay" parent="." instance=ExtResource("3_settings")]
+
+[node name="AudioManager" type="Node" parent="."]
+script = ExtResource("4_audio")
+
+[node name="MonetizationService" type="Node" parent="."]
+script = ExtResource("6_monetization")

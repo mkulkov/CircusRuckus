@@ -1,0 +1,16 @@
+{
+  "reference_pixels": {"width": 941, "height": 1672},
+  "design_pixels": {"width": 1080, "height": 1920},
+  "normalized_regions": {
+    "hud": {"left": 0.02, "top": 0.01, "right": 0.98, "bottom": 0.15},
+    "circus_entrance": {"center_x": 0.50, "top": 0.17, "bottom": 0.41},
+    "board": {"left_top": 0.07, "right_top": 0.93, "top": 0.37, "left_bottom": 0.01, "right_bottom": 0.99, "bottom": 0.87}
+  },
+  "box_centers_design_pixels": [
+    [244, 855], [540, 855], [837, 855],
+    [218, 1134], [540, 1134], [862, 1134],
+    [190, 1424], [540, 1424], [891, 1424]
+  ],
+  "row_scale": [0.98, 1.00, 1.10],
+  "layout_rule": "fixed 1080x1920 composition scaled uniformly from viewport width; rows widen and scale toward the viewer"
+}

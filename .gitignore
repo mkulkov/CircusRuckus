@@ -1,0 +1,16 @@
+# Godot-generated cache and imported resources
+/.godot/
+
+# Build outputs
+/builds/*
+!/builds/.gitkeep
+
+# Test and editor reports
+/reports/
+/verification/
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

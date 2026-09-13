@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="LevelConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/level_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+level_id = 8
+display_name = "Особые"
+target_score = 350
+spawn_interval_min = 0.15
+spawn_interval_max = 0.21
+max_active_characters = 2
+double_spawn_chance = 0.35
+normal_weight = 55.0
+fast_weight = 12.0
+golden_weight = 1.0
+bomb_weight = 8.0
+clock_weight = 8.0
+glutton_weight = 10.0
+drunk_weight = 7.0
+normal_visible_time = 0.45
+fast_visible_time = 0.275
+bomb_visible_time = 0.45
+clock_visible_time = 0.45
+glutton_visible_time = 0.5
+drunk_visible_time = 0.5
+max_clock_spawns = 3

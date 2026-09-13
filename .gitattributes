@@ -1,0 +1,7 @@
+*.gd text eol=lf
+*.tscn text eol=lf
+*.tres text eol=lf
+*.godot text eol=lf
+*.sh text eol=lf
+*.cmd text eol=crlf
+
