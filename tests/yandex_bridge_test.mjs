@@ -34,7 +34,15 @@ const ysdk = {
 		hideBannerAdv: async () => ({ stickyAdvIsShowing: false }),
 		showFullscreenAdv() {},
 	},
-	payments: { getPurchases: async () => [], purchase: async ({ id }) => ({ productID: id }) },
+	payments: {
+		getPurchases: async () => [],
+		getCatalog: async () => [{
+			id: 'remove_ads',
+			price: '49 YAN',
+			getPriceCurrencyImage: (size) => `https://example.test/currency-${size}.png`,
+		}],
+		purchase: async ({ id }) => ({ productID: id }),
+	},
 };
 
 const context = vm.createContext({
@@ -91,5 +99,18 @@ await flush();
 assert.equal(cloudSave.success, true);
 assert.equal(cloudWrite.flush, true);
 assert.equal(cloudWrite.data.clown_smash_save.highest_unlocked_level, 3);
+
+let productInfo = null;
+bridge.loadProductCatalog((value) => { productInfo = JSON.parse(value); });
+await flush();
+assert.equal(productInfo.product_id, 'remove_ads');
+assert.equal(productInfo.price, '49 YAN');
+assert.equal(productInfo.currency_icon_url, 'https://example.test/currency-small.png');
+
+let purchaseResult = null;
+bridge.purchase('remove_ads', (value) => { purchaseResult = JSON.parse(value); });
+await flush();
+assert.equal(purchaseResult.success, true);
+assert.equal(purchaseResult.product_id, 'remove_ads');
 
 console.log('YANDEX BRIDGE TEST: PASS');

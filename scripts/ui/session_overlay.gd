@@ -22,6 +22,12 @@ const PANEL_WIDTH := 670.0
 const ACTION_SIZE := Vector2(460.0, 90.0)
 const ACTION_GAP := 25.0
 const PANEL_BOTTOM_PADDING := 40.0
+const COUNTDOWN_GO_EN := preload("res://assets/ui/countdown_go_en.png")
+const COUNTDOWN_GO_RU := preload("res://assets/ui/countdown_go_ru.png")
+const CONFETTI_COLORS: Array[Color] = [
+	Color("ff315d"), Color("ffcf2f"), Color("23d9ff"), Color("39ef89"),
+	Color("b65cff"), Color("ff7a22"), Color("fff4b0"), Color("ff4fd8"),
+]
 
 var _mode: OverlayMode = OverlayMode.NONE
 var _countdown_text: String = ""
@@ -36,10 +42,14 @@ var _menu_button: Button
 var _next_button: Button
 var _settings_button: Button
 var _remove_ads_button: Button
+var _countdown_is_final := false
+var _countdown_burst_time := 0.0
+var _confetti: Array[Dictionary] = []
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	set_process(true)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_resume_button = _create_button(tr("RESUME"))
@@ -81,18 +91,27 @@ func configure_monetization(monetization_service: MonetizationService) -> void:
 		return
 	if not _monetization.entitlement_changed.is_connected(refresh_monetization):
 		_monetization.entitlement_changed.connect(refresh_monetization)
+	if not _monetization.product_info_changed.is_connected(refresh_monetization):
+		_monetization.product_info_changed.connect(refresh_monetization)
 	refresh_monetization()
 
 
 func refresh_monetization() -> void:
 	if _remove_ads_button != null:
-		_remove_ads_button.visible = _monetization != null and _monetization.are_purchases_enabled() and not _monetization.is_ads_removed()
+		_remove_ads_button.visible = _monetization != null and _monetization.is_remove_ads_offer_available() and not _monetization.is_ads_removed()
+		if _monetization != null:
+			var price := _monetization.get_remove_ads_price()
+			_remove_ads_button.text = tr("REMOVE_ADS") if price.is_empty() else "%s\n%s" % [tr("REMOVE_ADS"), price]
+			_remove_ads_button.icon = null
 		_layout_buttons()
 		queue_redraw()
 
 
 func show_countdown(text: String) -> void:
 	_countdown_text = text
+	_countdown_is_final = not text.is_empty() and text not in ["3", "2", "1"]
+	if _countdown_is_final:
+		_start_countdown_burst()
 	_mode = OverlayMode.COUNTDOWN if not text.is_empty() else OverlayMode.NONE
 	mouse_filter = Control.MOUSE_FILTER_STOP if _mode != OverlayMode.NONE else Control.MOUSE_FILTER_IGNORE
 	_resume_button.visible = false
@@ -165,7 +184,7 @@ func is_showing_save_error() -> bool:
 
 
 func _draw() -> void:
-	if _mode == OverlayMode.NONE:
+	if _mode == OverlayMode.NONE and _confetti.is_empty():
 		return
 	var scale_factor := size.x / DESIGN_SIZE.x
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE * scale_factor)
@@ -174,14 +193,86 @@ func _draw() -> void:
 		_draw_countdown()
 	elif _mode == OverlayMode.PAUSE:
 		_draw_pause()
-	else:
+	elif _mode == OverlayMode.RESULT:
 		_draw_result()
+	_draw_confetti()
 
 
 func _draw_countdown() -> void:
-	draw_circle(Vector2(540.0, 760.0), 118.0, Color(0.12, 0.04, 0.18, 0.72))
-	draw_arc(Vector2(540.0, 760.0), 112.0, 0.0, TAU, 64, Color("ffc345"), 10.0, true)
-	_draw_text(_countdown_text, Rect2(410.0, 670.0, 260.0, 170.0), 118, Color.WHITE)
+	if not _countdown_is_final:
+		_draw_text(_countdown_text, Rect2(410.0, 670.0, 260.0, 170.0), 118, Color.WHITE)
+		return
+	var texture := COUNTDOWN_GO_RU if TranslationServer.get_locale().begins_with("ru") else COUNTDOWN_GO_EN
+	var reveal := clampf(_countdown_burst_time / 0.16, 0.0, 1.0)
+	var fade := 1.0 - clampf((_countdown_burst_time - 0.38) / 0.24, 0.0, 1.0)
+	var pop_scale := lerpf(0.45, 1.08, sin(reveal * PI * 0.5))
+	var target_size := Vector2(650.0, 230.0) if texture == COUNTDOWN_GO_RU else Vector2(470.0, 260.0)
+	target_size *= pop_scale
+	var target_rect := Rect2(Vector2(540.0, 760.0) - target_size * 0.5, target_size)
+	draw_texture_rect(texture, target_rect, false, Color(1.0, 1.0, 1.0, fade))
+
+
+func _process(delta: float) -> void:
+	if not _countdown_is_final and _confetti.is_empty():
+		return
+	_countdown_burst_time += delta
+	for piece in _confetti:
+		piece.position += piece.velocity * delta
+		piece.velocity.y += 980.0 * delta
+		piece.rotation += piece.spin * delta
+		piece.life -= delta
+	for index in range(_confetti.size() - 1, -1, -1):
+		if float(_confetti[index].life) <= 0.0:
+			_confetti.remove_at(index)
+	queue_redraw()
+
+
+func _start_countdown_burst() -> void:
+	_countdown_burst_time = 0.0
+	_confetti.clear()
+	var random := RandomNumberGenerator.new()
+	random.seed = 0xC1AC05
+	for index in range(92):
+		var angle := random.randf_range(-PI * 0.92, -PI * 0.08)
+		var speed := random.randf_range(430.0, 980.0)
+		_confetti.append({
+			"position": Vector2(540.0 + random.randf_range(-105.0, 105.0), 760.0 + random.randf_range(-25.0, 25.0)),
+			"velocity": Vector2(cos(angle), sin(angle)) * speed,
+			"rotation": random.randf_range(0.0, TAU),
+			"spin": random.randf_range(-13.0, 13.0),
+			"size": Vector2(random.randf_range(10.0, 25.0), random.randf_range(5.0, 13.0)),
+			"color": CONFETTI_COLORS[index % CONFETTI_COLORS.size()],
+			"life": random.randf_range(0.72, 1.18),
+			"shape": index % 5,
+		})
+
+
+func _draw_confetti() -> void:
+	for piece in _confetti:
+		var alpha := clampf(float(piece.life) / 0.3, 0.0, 1.0)
+		var color: Color = piece.color
+		color.a = alpha
+		var transform := Transform2D(float(piece.rotation), piece.position)
+		draw_set_transform_matrix(transform)
+		var piece_size: Vector2 = piece.size
+		match int(piece.shape):
+			0:
+				draw_rect(Rect2(-piece_size * 0.5, piece_size), color)
+				draw_line(Vector2(-piece_size.x * 0.28, 0.0), Vector2(piece_size.x * 0.28, 0.0), Color(1, 1, 1, alpha * 0.9), 2.0)
+			1:
+				var diamond := PackedVector2Array([Vector2(0, -piece_size.x * 0.55), Vector2(piece_size.x * 0.5, 0), Vector2(0, piece_size.x * 0.55), Vector2(-piece_size.x * 0.5, 0)])
+				draw_colored_polygon(diamond, color)
+				draw_circle(Vector2(-1.5, -2.0), 2.3, Color(1, 1, 1, alpha))
+			2:
+				draw_circle(Vector2.ZERO, piece_size.x * 0.42, color)
+				draw_circle(Vector2(-piece_size.x * 0.12, -piece_size.x * 0.14), piece_size.x * 0.12, Color(1, 1, 1, alpha * 0.95))
+			3:
+				var ribbon := PackedVector2Array([Vector2(-piece_size.x * 0.6, -piece_size.y), Vector2(-piece_size.x * 0.12, piece_size.y), Vector2(piece_size.x * 0.6, -piece_size.y * 0.5), Vector2(piece_size.x * 0.12, piece_size.y)])
+				draw_polyline(ribbon, color, 5.0, true)
+			_:
+				draw_line(Vector2(-piece_size.x * 0.55, 0), Vector2(piece_size.x * 0.55, 0), color, 4.0)
+				draw_line(Vector2(0, -piece_size.x * 0.55), Vector2(0, piece_size.x * 0.55), Color(1, 1, 1, alpha), 3.0)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_pause() -> void:

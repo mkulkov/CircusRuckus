@@ -5,6 +5,7 @@ signal initialized(success: bool)
 signal interstitial_opened
 signal interstitial_finished(success: bool)
 signal purchase_finished(success: bool, product_id: String)
+signal product_info_updated(product_id: String, price: String, currency_icon_url: String)
 signal platform_pause_requested
 signal platform_resume_requested
 signal banner_status_changed(visible: bool, reason: String)
@@ -15,6 +16,9 @@ func initialize() -> void:
 	initialized.emit(true)
 
 func restore_entitlements() -> void:
+	pass
+
+func load_catalog() -> void:
 	pass
 
 func notify_game_ready() -> void:

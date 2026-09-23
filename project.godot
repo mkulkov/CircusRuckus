@@ -27,6 +27,10 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/RuStoreGodotCore/plugin.cfg", "res://addons/RuStoreGodotPay/plugin.cfg")
+
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true
@@ -35,6 +39,12 @@ pointing/emulate_touch_from_mouse=true
 
 locale/translations=PackedStringArray("res://localization/ui.en.translation", "res://localization/ui.ru.translation")
 locale/fallback="ru"
+
+[monetization]
+
+rustore/yandex_appmetrica_api_key=""
+rustore/yandex_banner_id=""
+rustore/yandex_interstitial_id=""
 
 [rendering]
 

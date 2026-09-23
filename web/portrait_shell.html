@@ -236,6 +236,24 @@
 						remove_ads: items.some((item) => item.productID === 'remove_ads' || item.product_id === 'remove_ads')
 					})).catch(() => finishJson(callback, {}));
 				},
+				loadProductCatalog(callback) {
+					if (platform !== 'yandex' || !ysdk || !ysdk.payments) { finishJson(callback, {}); return; }
+					ysdk.payments.getCatalog().then((items) => {
+						const product = items.find((item) => item.id === 'remove_ads');
+						if (!product) { finishJson(callback, {}); return; }
+						let currencyIconUrl = '';
+						try { currencyIconUrl = product.getPriceCurrencyImage('small') || ''; }
+						catch (error) { console.warn('[ClownSmash][Yandex] Currency icon unavailable', error); }
+						finishJson(callback, {
+							product_id: product.id,
+							price: product.price || '',
+							currency_icon_url: currencyIconUrl
+						});
+					}).catch((error) => {
+						console.warn('[ClownSmash][Yandex] Product catalog unavailable', error);
+						finishJson(callback, {});
+					});
+				},
 				purchase(productId, callback) {
 					if (platform === 'yandex' && ysdk && ysdk.payments) {
 						ysdk.payments.purchase({ id: productId }).then((purchase) => {

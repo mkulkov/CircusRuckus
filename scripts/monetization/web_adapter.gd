@@ -5,6 +5,7 @@ var _bridge: Variant
 var _platform: String = ""
 var _initialize_callback: JavaScriptObject
 var _restore_callback: JavaScriptObject
+var _catalog_callback: JavaScriptObject
 var _banner_callback: JavaScriptObject
 var _interstitial_opened_callback: JavaScriptObject
 var _interstitial_finished_callback: JavaScriptObject
@@ -41,6 +42,25 @@ func restore_entitlements() -> void:
 		return
 	_restore_callback = JavaScriptBridge.create_callback(_on_restored)
 	_bridge.restorePurchases(_restore_callback)
+
+
+func load_catalog() -> void:
+	if _bridge == null:
+		return
+	_catalog_callback = JavaScriptBridge.create_callback(_on_catalog_loaded)
+	_bridge.loadProductCatalog(_catalog_callback)
+
+
+func _on_catalog_loaded(arguments: Array) -> void:
+	var data := _decode_callback_dictionary(arguments)
+	var product_id := str(data.get("product_id", ""))
+	if product_id.is_empty():
+		return
+	product_info_updated.emit(
+		product_id,
+		str(data.get("price", "")),
+		str(data.get("currency_icon_url", ""))
+	)
 
 
 func notify_game_ready() -> void:

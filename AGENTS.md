@@ -213,33 +213,34 @@ When the current Codex harness supports selecting a worker model/reasoning level
 
 | Task class | Preferred worker | Reasoning |
 |---|---|---|
-| File/repository scan, grep, asset inventory, repetitive inspection | GPT-5.6 Luna | low |
-| Simple documentation maintenance, test enumeration, boilerplate | GPT-5.6 Luna | low |
-| One short, local, well-defined GDScript or UI adjustment in an existing implementation where rapid feedback materially helps | GPT-5.3-Codex-Spark (`FAST_INTERACTIVE_EXECUTOR`) | low |
-| Small isolated GDScript change with explicit acceptance criteria | GPT-5.6 Terra | low/medium |
-| Unit tests for already-defined behavior | GPT-5.6 Terra | medium |
-| Low-risk bounded refactor | GPT-5.6 Terra | medium |
-| Difficult debugging, cross-system integration, architecture review | GPT-5.6 Sol | medium/high |
-| High-risk or ambiguous technical judgement | GPT-5.6 Sol | high |
+| File/repository scan, grep, asset inventory, repetitive inspection | GPT-6 Sol | low |
+| Simple documentation maintenance, test enumeration, boilerplate | GPT-6 Luna | low |
+| One short, local, well-defined GDScript or UI adjustment in an existing implementation | GPT-6 Luna | low |
+| Small isolated GDScript change with explicit acceptance criteria | GPT-6 Sol | low |
+| Unit tests for already-defined behavior | GPT-6 Sol | medium |
+| Low-risk bounded refactor | GPT-6 Sol | medium |
+| Difficult debugging, cross-system integration, architecture review | GPT-6 Sol | high |
+| High-risk or ambiguous technical judgement | GPT-6 Sol | high |
 
 Available model names and selectable effort may differ by Codex version/account. Treat routing as requested until runtime confirms it.
 If the harness cannot actually pin a child model/effort, do not claim that it did.
 
-Use Spark only for the focused interactive case in the table. Do not use it for
+Use Luna only for the focused cases in the table. Do not use it for
 architecture, broad refactors, unclear diagnosis, risky changes, or work that
-needs deep reasoning; use Terra or Sol as the scope requires.
+needs deep reasoning; use Sol at the effort the scope requires.
 
 ### 10.3. Astra policy
 
 **GPT-6 Astra must never be selected automatically.**
 
-Before using Astra:
+Before recommending Astra:
 
 1. stop before dispatch;
 2. explain why Sol is insufficient or materially less efficient;
 3. state expected benefit;
 4. request explicit user permission;
-5. use Astra only after approval.
+5. use Astra only after approval. A direct user instruction to use Astra for
+   the task also authorizes its use without a second request.
 
 Do not use Astra for routine coding, file scans, asset renaming, standard tests, formatting, simple bug fixes, or documentation maintenance.
 

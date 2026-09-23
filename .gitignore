@@ -4,6 +4,17 @@
 # Build outputs
 /builds/*
 !/builds/.gitkeep
+/android/build/.gradle/
+/android/build/build/
+/android/build/libs/
+
+# Signing and Play upload artifacts
+/cert_rustore.pem
+/pepk_out.zip
+
+# Raw promotional recordings are retained locally; publish only final media
+/promotion/yandex_games_en_2026-09-16/video/raw/
+/promotion/yandex_games_ru_2026-09-16/video/raw/
 
 # Test and editor reports
 /reports/

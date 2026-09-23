@@ -63,7 +63,7 @@ func _refresh_states() -> void:
 		if button.disabled:
 			button.text = "%d\n%s" % [level_id, tr("LOCKED")]
 		elif completed.has(level_id):
-			button.text = "%d  ✓\n%d" % [level_id, int(best_scores.get(str(level_id), 0))]
+			button.text = "%d\n%d" % [level_id, int(best_scores.get(str(level_id), 0))]
 		else:
 			button.text = str(level_id)
 

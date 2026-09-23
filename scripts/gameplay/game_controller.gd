@@ -21,7 +21,7 @@ enum GameState {
 }
 
 const MAX_LIVES := 3
-const COUNTDOWN_LABELS := ["3", "2", "1", "GO!"]
+const COUNTDOWN_LABELS := ["3", "2", "1", "COUNTDOWN_GO"]
 const DRUNK_CONFUSION_STRIKES := 1
 
 @export var countdown_step_duration: float = 0.65
@@ -93,7 +93,7 @@ func start_level(
 		_countdown_index = 0
 		_countdown_time_left = countdown_step_duration
 		_set_state(GameState.COUNTDOWN)
-		countdown_changed.emit(COUNTDOWN_LABELS[_countdown_index])
+		countdown_changed.emit(_get_countdown_label(_countdown_index))
 	else:
 		begin_running()
 
@@ -239,7 +239,12 @@ func _process_countdown(delta: float) -> void:
 		begin_running()
 		return
 	_countdown_time_left += countdown_step_duration
-	countdown_changed.emit(COUNTDOWN_LABELS[_countdown_index])
+	countdown_changed.emit(_get_countdown_label(_countdown_index))
+
+
+func _get_countdown_label(index: int) -> String:
+	var label := str(COUNTDOWN_LABELS[index])
+	return tr(label) if label == "COUNTDOWN_GO" else label
 
 
 func _set_state(value: GameState) -> void:

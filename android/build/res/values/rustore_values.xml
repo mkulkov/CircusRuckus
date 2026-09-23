@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Replace 0 with the numeric application ID from RuStore Console before release. -->
+    <string name="rustore_PayClientSettings_consoleApplicationId" translatable="false">0</string>
+    <string name="rustore_PayClientSettings_internalConfigKey" translatable="false">godot</string>
+</resources>

@@ -1,5 +1,73 @@
 # PROGRESS.md — Цирковой переполох
 
+## 2026-09-16 — Bilingual horizontal gameplay videos
+
+- Added `promotion/gameplay_videos_bilingual_2026-09-16/` with new Russian and English 1920x1080 (16:9) H.264/AAC videos at 60 FPS. Each opens with its matching localized startup splash and then shows continuous gameplay from the matching localized runtime recording.
+- The portrait playfield remains complete, centered and uniformly scaled over a blurred, darkened frame-derived background. FFprobe metadata, full FFmpeg decode and visual review of title-card and gameplay contact sheets passed; no game asset or runtime UI was modified.
+
+## 2026-09-16 — Yandex archive with graphical countdown
+
+- Re-exported `Web - Yandex Games` after adding the localized `НАЧАЛИ!` / `GO!` raster countdown and circus-confetti burst.
+- Built `builds/clown-smash-yandex-countdown-confetti-2026-09-16.zip`: 9 root runtime files, 31,100,184 bytes, SHA-256 `FDF4050D0E28E18AA9B236954470152A323074AD1F54FB8D81C6EF4687A93B91`.
+- Editor/import, full tests, smoke test, Yandex Bridge contract, Web export and archive-content inspection passed; live cabinet upload and hosted SDK behavior were not performed.
+
+## 2026-09-16 — Графический старт и цирковое конфетти
+
+- Финальный кадр отсчёта заменён на локализованные прозрачные растровые надписи `НАЧАЛИ!` / `GO!` без круглой подложки.
+- Надпись появляется с коротким pop-эффектом и взрывается яркими блестящими цирковыми конфетти; цифры `3–2–1` и игровая логика отсчёта не изменены.
+- Godot 4.7.2: импорт, полный `tests/run_tests.gd`, smoke-тест и видимые Compatibility-renderer кадры обеих локалей прошли; PNG подтверждены как RGBA.
+
+## 2026-09-16 — Yandex production build refreshed after UI correction
+
+- Re-exported `Web - Yandex Games` after hiding the Remove Ads currency icon and rebuilt `builds/clown-smash-yandex-remove-ads-2026-09-16.zip` with only the nine upload files.
+- Final archive: 28,682,246 bytes, SHA-256 `B8748D17BE2EB0E90303FE8AC1F8A3629915575F23C5417AAD9F9DFA340282F2`. Import, full tests, smoke test, Web export and ZIP inspection passed.
+
+## 2026-09-16 — Bilingual horizontal gameplay collages
+
+- Added `promotion/gameplay_collages_bilingual_2026-09-16/` with three Russian and three English 2560x1440 (16:9) JPEG collages. The first Russian and English collages contain their matching localized startup splashes; all remaining panels are unique frames from the localized gameplay recordings, with no source-image reuse across the six collages.
+- Used existing visible Compatibility-renderer captures and localized runtime recordings without changing game assets or UI. FFprobe confirmed every deliverable as 2560x1440 `yuvj420p`; the bilingual contact sheet was visually reviewed.
+
+## 2026-09-16 — English Yandex moderation videos refreshed
+
+- Added `promotion/yandex_games_en_2026-09-16/` as the English equivalent of the current Russian moderation-video package: fresh vertical 1080x1920 and horizontal 1920x1080 H.264/AAC gameplay videos at 60 FPS and 26.27 seconds.
+- Both outputs come from one deterministic English Godot Movie Maker capture. The horizontal version keeps the full portrait frame over a blurred background from the same stream; full FFmpeg decode and visual contact-sheet review passed.
+
+## 2026-09-16 — Remove Ads button icon hidden
+
+- Removed the graphical currency icon from the Remove Ads buttons in the main menu and session overlay at the user's request. The SDK catalog, dynamic price/currency text, purchase and restore flows remain unchanged.
+
+## 2026-09-16 — Yandex `remove_ads` purchase restored
+
+- Re-enabled purchases in the production `Web - Yandex Games` preset after the `remove_ads` product was added in the platform console.
+- Added `payments.getCatalog()` integration. The Remove Ads buttons display the SDK-provided price/currency text and remain hidden in the Yandex build until the catalog returns the declared product.
+- Kept the permanent entitlement flow through `payments.purchase()` and startup `payments.getPurchases()` restoration; a successful/restored purchase persists `ads_removed` and disables in-game banner/interstitial requests.
+- Built `builds/clown-smash-yandex-remove-ads-2026-09-16.zip`: 9 root files, 28,682,248 bytes, SHA-256 `A2AE412B7824230B0C5C10FCEE5E8CE37267245609236FF1F4223FBBE8760D64`. Editor/import, JavaScript bridge contract, full Godot tests, smoke test, visible Compatibility-renderer offer capture, Web export and ZIP inspection passed; live sandbox purchase/restore still requires the uploaded Yandex draft.
+
+## 2026-09-16 — Yandex moderation corrections
+
+- Localized the final countdown cue as `GO!` / `ВПЕРЁД!` and made the already-instantiated Settings overlay refresh all labels after the platform SDK selects a locale, eliminating mixed Russian/English UI.
+- Removed the unsupported check-mark glyph from completed level buttons; fresh Russian and English Compatibility-renderer captures show readable text without missing-glyph boxes.
+- Added `no_purchases` to the production `Web - Yandex Games` preset. The undeclared `remove_ads` button is hidden in this release while advertising remains available; RuStore, VK and explicit monetization-demo presets are unchanged.
+- Added fresh Russian vertical and horizontal gameplay videos under `promotion/yandex_games_ru_2026-09-16/`. Both are H.264/AAC, 26.27 seconds, fully decoded and visually reviewed from contact sheets.
+- Built `builds/clown-smash-yandex-release-fix-2026-09-16.zip`: 12 root files, 28,681,250 bytes, SHA-256 `9518FF34F76A17FBA82B89C5FA5163EBE28CC7B5E0B62DC4B824CA0D563F15D0`.
+- Godot editor/import check, full `tests/run_tests.gd`, smoke test, production Web export, archive inspection and visible renderer checks passed. Cabinet upload, draft-language field replacement and repeat moderation remain external manual steps.
+
+## 2026-09-15 — RuStore AAB release packaging
+
+- Configured the production RuStore preset as an arm64 AAB and narrowed its export filter to omit tests, tooling, promotion/verification material, source-processing assets, the demo ad video, and the optional Android Yandex Ads plugin.
+- Kept RuStore Pay initialization independent of the optional ads singleton, so the signed store build can retain purchases without bundling Yandex Mobile Ads.
+- Built and verified `builds/clown-smash-rustore.aab` (45,885,611 bytes, SHA-256 `EC806CF3FFC94C0958A0EB1ECEE016C5A8BA972DED21F57D96777095864CE9FC`) with the universal release certificate; archive inspection found no Yandex/AppMetrica, Adugo, test, tooling, promotion, verification, reference, or demo-ad paths.
+- Built the matching signed device APK, installed it on Infinix X663, and visually checked the 1080x2400 main menu, countdown, gameplay board and a real empty-box tap. Runtime logs showed only RuStore Core/Pay plugins, no crash or GDScript error, and roughly 60 FPS frame delivery after startup.
+- Full automated tests and the smoke test passed. Store purchase/restore is still blocked from production verification until `rustore_PayClientSettings_consoleApplicationId` is replaced from `0` with the actual RuStore Console application ID and the `remove_ads` product is configured.
+
+## 2026-09-15 — RuStore production monetization components
+
+- Added the official RuStore Godot Pay/Core 11.1.0 plugins and the current Pay SDK Maven repository; BillingClient is not used.
+- Added the Android Yandex Mobile Ads 7.18.3 plugin and connected the RuStore adapter to a bottom adaptive banner and level-start interstitial callbacks.
+- Implemented non-consumable `remove_ads` purchase and startup restoration. A confirmed purchase uses the existing durable `ads_removed` save path, hides the banner and bypasses later interstitials.
+- Added the `Android - RuStore` Gradle export preset, Android network permissions, Pay SDK manifest metadata, and documented public configuration keys.
+- Local/static verification can prove parsing, tests and Gradle dependency resolution only. RuStore Console app/product IDs, Yandex ad-unit IDs, release signing, sandbox purchase/restore, real ad inventory, consent/privacy setup and device behavior still require owner/device verification.
+
 ## 2026-09-13 — Yandex lifecycle, cloud saves and advertising gates
 
 - Centralized Yandex SDK initialization in the web platform bridge; localization, Game Ready, Gameplay API, lifecycle, cloud saves and advertising now reuse one `ysdk` promise.
@@ -536,3 +604,19 @@ Planned:
 - Drunk causes the next player tap to strike a random box.
 - Cheap subagents are permitted only for bounded low-risk work.
 - Astra requires explicit user permission before use.
+## 2026-09-16 — Универсальный чек-лист модерации Яндекс Игр
+
+- Добавлен `docs/yandex_games_release_moderation_checklist.md` для переноса в другие проекты.
+- Чек-лист покрывает локализацию, production-состояние, ИАП, каталог/цену/валюту, покупку и восстановление прав, отключение рекламы, медиаматериалы, автоматические проверки и ручной pre-submit прогон.
+
+## 2026-09-16 — Русское рекламное видео 15 секунд
+
+- Добавлен вертикальный рекламный ролик `promotion/advertising_video_ru_2026-09-16/clown_smash_ad_ru_vertical_1080x1920_15s.mp4`, собранный из актуальной русской записи реального геймплея, фирменной заставки и игровых скриншотов.
+- Монтаж показывает попадания, рост комбо, специальных клоунов, удар молотом и финальный призыв «ИГРАЙ СЕЙЧАС!». Титры приведены к стилю игрового UI: красные цирковые панели, золотые рамки и блики, кремовый текст, тёмная объёмная окантовка и звёздные акценты; игровые правила и ресурсы проекта не изменялись.
+- Проверка пройдена: 15.000 с, 1080×1920, 60 FPS, H.264 `yuv420p`, AAC 48 кГц stereo, полное декодирование без ошибок и визуальный просмотр секундного контактного листа.
+
+## 2026-09-16 — Английское рекламное видео 15 секунд
+
+- Добавлен английский эквивалент утверждённого русского рекламного ролика: `promotion/advertising_video_en_2026-09-16/clown_smash_ad_en_vertical_1080x1920_15s.mp4`.
+- Сохранены монтаж, тайминг, музыка и стиль цирковых титров; использованы английские HUD, заставка, игровые скриншоты и естественные английские рекламные формулировки.
+- Проверка пройдена: 15.000 с, 1080×1920, 60 FPS, H.264 `yuv420p`, AAC 48 кГц stereo, полное декодирование без ошибок, крупные кадры титров и секундный контактный лист просмотрены визуально.

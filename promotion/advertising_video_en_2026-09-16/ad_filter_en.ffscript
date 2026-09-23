@@ -1,0 +1,28 @@
+[1:v]scale=1200:2134,crop=1080:1920,setsar=1,zoompan=z='min(zoom+0.0007,1.07)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=72:s=1080x1920:fps=60,trim=duration=1.2,setpts=PTS-STARTPTS,setsar=1[title];
+[0:v]trim=start=1.2:end=5.7,setpts=PTS-STARTPTS,scale=1080:1920:flags=lanczos,setsar=1,fps=60[game_a];
+[2:v]scale=1200:2134,crop=1080:1920,setsar=1,zoompan=z='min(zoom+0.0008,1.06)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=60:s=1080x1920:fps=60,trim=duration=1.0,setpts=PTS-STARTPTS,setsar=1[specials];
+[0:v]trim=start=18.0:end=23.7,setpts=PTS-STARTPTS,scale=1080:1920:flags=lanczos,setsar=1,fps=60[game_b];
+[3:v]scale=1200:2134,crop=1080:1920,setsar=1,zoompan=z='min(zoom+0.0012,1.08)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=60:s=1080x1920:fps=60,trim=duration=1.0,setpts=PTS-STARTPTS,setsar=1[impact];
+[1:v]scale=1200:2134,crop=1080:1920,setsar=1,zoompan=z='min(zoom+0.0005,1.05)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=96:s=1080x1920:fps=60,trim=duration=1.6,setpts=PTS-STARTPTS,setsar=1[final];
+[title][game_a][specials][game_b][impact][final]concat=n=6:v=1:a=0,
+drawbox=x=72:y=1624:w=936:h=148:color=0x1F0611@0.70:t=fill:enable='between(t,0.05,1.15)+between(t,1.25,3.55)+between(t,5.72,6.66)+between(t,6.75,9.45)+between(t,12.42,13.36)+between(t,13.42,14.92)',
+drawbox=x=60:y=1610:w=960:h=148:color=0x3B1420@0.98:t=fill:enable='between(t,0.05,1.15)+between(t,1.25,3.55)+between(t,5.72,6.66)+between(t,6.75,9.45)+between(t,12.42,13.36)+between(t,13.42,14.92)',
+drawbox=x=68:y=1618:w=944:h=132:color=0xFFC84F@1.0:t=fill:enable='between(t,0.05,1.15)+between(t,1.25,3.55)+between(t,5.72,6.66)+between(t,6.75,9.45)+between(t,12.42,13.36)+between(t,13.42,14.92)',
+drawbox=x=76:y=1626:w=928:h=116:color=0xA93232@0.96:t=fill:enable='between(t,0.05,1.15)+between(t,1.25,3.55)+between(t,5.72,6.66)+between(t,6.75,9.45)+between(t,12.42,13.36)+between(t,13.42,14.92)',
+drawbox=x=94:y=1636:w=892:h=4:color=0xFFE49A@0.55:t=fill:enable='between(t,0.05,1.15)+between(t,1.25,3.55)+between(t,5.72,6.66)+between(t,6.75,9.45)+between(t,12.42,13.36)+between(t,13.42,14.92)',
+drawtext=fontfile='C\:/Windows/Fonts/seguisym.ttf':text='★':fontcolor=0xFFE49A:fontsize=40:borderw=4:bordercolor=0x3B1420:x=92:y=1660:enable='between(t,0.05,1.15)+between(t,1.25,3.55)+between(t,5.72,6.66)+between(t,6.75,9.45)+between(t,12.42,13.36)+between(t,13.42,14.92)',
+drawtext=fontfile='C\:/Windows/Fonts/seguisym.ttf':text='★':fontcolor=0xFFE49A:fontsize=40:borderw=4:bordercolor=0x3B1420:x=940:y=1660:enable='between(t,0.05,1.15)+between(t,1.25,3.55)+between(t,5.72,6.66)+between(t,6.75,9.45)+between(t,12.42,13.36)+between(t,13.42,14.92)',
+drawtext=fontfile='C\:/Windows/Fonts/arialbd.ttf':text='READY TO SMASH?':fontcolor=0xFFF1B8:fontsize=62:borderw=5:bordercolor=0x3B1420:shadowcolor=0x1F0611@0.75:shadowx=4:shadowy=6:x=(w-text_w)/2:y=1650:enable='between(t,0.05,1.15)',
+drawtext=fontfile='C\:/Windows/Fonts/arialbd.ttf':text='PICK YOUR TARGET!':fontcolor=0xFFF1B8:fontsize=56:borderw=5:bordercolor=0x3B1420:shadowcolor=0x1F0611@0.75:shadowx=4:shadowy=6:x=(w-text_w)/2:y=1654:enable='between(t,1.25,3.55)',
+drawtext=fontfile='C\:/Windows/Fonts/arialbd.ttf':text='EVERY CLOWN HAS A SURPRISE!':fontcolor=0xFFF1B8:fontsize=40:borderw=4:bordercolor=0x3B1420:shadowcolor=0x1F0611@0.75:shadowx=3:shadowy=5:x=(w-text_w)/2:y=1662:enable='between(t,5.72,6.66)',
+drawtext=fontfile='C\:/Windows/Fonts/arialbd.ttf':text='BUILD YOUR COMBO!':fontcolor=0xFFF1B8:fontsize=56:borderw=5:bordercolor=0x3B1420:shadowcolor=0x1F0611@0.75:shadowx=4:shadowy=6:x=(w-text_w)/2:y=1654:enable='between(t,6.75,9.45)',
+drawtext=fontfile='C\:/Windows/Fonts/arialbd.ttf':text='PICK YOUR TARGET. BUILD YOUR COMBO.':fontcolor=0xFFF1B8:fontsize=34:borderw=4:bordercolor=0x3B1420:shadowcolor=0x1F0611@0.75:shadowx=3:shadowy=5:x=(w-text_w)/2:y=1666:enable='between(t,12.42,13.36)',
+drawtext=fontfile='C\:/Windows/Fonts/arialbd.ttf':text='PLAY NOW!':fontcolor=0xFFF1B8:fontsize=72:borderw=5:bordercolor=0x3B1420:shadowcolor=0x1F0611@0.75:shadowx=4:shadowy=6:x=(w-text_w)/2:y=1645:enable='between(t,13.42,14.92)',
+fade=t=in:st=0:d=0.12,fade=t=out:st=14.78:d=0.22,scale=in_range=full:out_range=tv,format=yuv420p,setsar=1[vout];
+[0:a]atrim=start=0:end=1.2,asetpts=PTS-STARTPTS[a0];
+[0:a]atrim=start=1.2:end=5.7,asetpts=PTS-STARTPTS[a1];
+[0:a]atrim=start=5.7:end=6.7,asetpts=PTS-STARTPTS[a2];
+[0:a]atrim=start=18.0:end=23.7,asetpts=PTS-STARTPTS[a3];
+[0:a]atrim=start=23.7:end=24.7,asetpts=PTS-STARTPTS[a4];
+[0:a]atrim=start=24.7:end=26.27,asetpts=PTS-STARTPTS,apad=pad_dur=0.03,atrim=duration=1.6[a5];
+[a0][a1][a2][a3][a4][a5]concat=n=6:v=0:a=1,volume=-0.8dB,afade=t=in:st=0:d=0.12,afade=t=out:st=14.7:d=0.3,aresample=48000[aout]

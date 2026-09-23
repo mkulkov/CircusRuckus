@@ -83,6 +83,15 @@ func _test_monetization_demo_contract() -> void:
 	await process_frame
 	_expect_true(service.is_ads_removed(), "Demo purchase grants the durable ads_removed entitlement")
 	_expect_true(bool(save_manager.load_data()["ads_removed"]), "Demo purchase persists ads_removed to disk")
+	service._on_product_info_updated("remove_ads", "49 YAN", "")
+	_expect_equal(service.get_remove_ads_price(), "49 YAN", "Remove Ads offer keeps the SDK-provided portal price")
+	var offer_menu_scene := load("res://scenes/ui/MainMenu.tscn") as PackedScene
+	var offer_menu := offer_menu_scene.instantiate()
+	root.add_child(offer_menu)
+	offer_menu.configure({}, service)
+	var offer_button := offer_menu.get_node("RemoveAdsButton") as Button
+	_expect_true(offer_button.icon == null, "Remove Ads button does not display a currency icon")
+	offer_menu.queue_free()
 
 	var restarted_service := MonetizationService.new()
 	restarted_service.configure(save_manager)
@@ -120,6 +129,13 @@ func _test_yandex_platform_contract() -> void:
 	_expect_true(shell.contains("player.setData({ clown_smash_save: data }, true)"), "Yandex cloud progress is flushed immediately")
 	_expect_true(shell.contains("getBannerAdvStatus()"), "Sticky banner status is checked before requesting display")
 	_expect_true(shell.contains("showBannerAdv()"), "Sticky banner display is requested through the SDK")
+	_expect_true(shell.contains("payments.getCatalog()"), "Yandex product catalog supplies portal price and currency")
+	_expect_true(shell.contains("getPriceCurrencyImage('small')"), "Yandex currency icon comes from the SDK")
+	var export_presets := ConfigFile.new()
+	_expect_equal(export_presets.load("res://export_presets.cfg"), OK, "Export presets load")
+	var yandex_features := str(export_presets.get_value("preset.1", "custom_features", ""))
+	_expect_true(yandex_features.split(",").has("yandex_games"), "Yandex production export enables its platform adapter")
+	_expect_true(not yandex_features.split(",").has("no_purchases"), "Yandex production export enables the declared remove_ads purchase")
 
 	var web_adapter := WebMonetizationAdapter.new()
 	var callback_data: Dictionary = web_adapter._decode_callback_dictionary(['{"platform":"yandex","visible":true}'])
@@ -194,14 +210,26 @@ func _test_localization() -> void:
 	var previous_locale := TranslationServer.get_locale()
 	TranslationServer.set_locale("en")
 	_expect_equal(TranslationServer.translate("MENU_PLAY"), "PLAY", "English menu translation is available")
+	_expect_equal(TranslationServer.translate("COUNTDOWN_GO"), "GO!", "English countdown translation is available")
 	_expect_equal(TranslationServer.translate("GAME_TITLE_LINE_1"), "CIRCUS", "English game title first line is available")
 	_expect_equal(TranslationServer.translate("GAME_TITLE_LINE_2"), "RUCKUS", "English game title second line is available")
 	TranslationServer.set_locale("ru")
 	_expect_equal(TranslationServer.translate("MENU_PLAY"), "ИГРАТЬ", "Russian menu translation is available")
+	_expect_equal(TranslationServer.translate("COUNTDOWN_GO"), "НАЧАЛИ!", "Russian countdown translation is available")
 	_expect_equal(TranslationServer.translate("GAME_TITLE_LINE_1"), "ЦИРКОВОЙ", "Russian game title first line is available")
 	_expect_equal(TranslationServer.translate("GAME_TITLE_LINE_2"), "ПЕРЕПОЛОХ", "Russian game title second line is available")
 	TranslationServer.set_locale(previous_locale)
 	manager.queue_free()
+
+	var settings_scene := load("res://scenes/ui/SettingsOverlay.tscn") as PackedScene
+	var settings := settings_scene.instantiate()
+	root.add_child(settings)
+	TranslationServer.set_locale("en")
+	_expect_equal(settings._music.text, "MUSIC", "Existing Settings UI refreshes to English")
+	TranslationServer.set_locale("ru")
+	_expect_equal(settings._music.text, "МУЗЫКА", "Existing Settings UI refreshes to Russian")
+	TranslationServer.set_locale(previous_locale)
+	settings.queue_free()
 
 
 func _test_audio_manager() -> void:
@@ -299,6 +327,8 @@ func _test_menu_and_navigation_flow() -> void:
 	_expect_true(levels.is_level_enabled(2), "Highest unlocked level is selectable")
 	_expect_true(not levels.is_level_enabled(3), "Locked level is not selectable")
 	_expect_true(levels.is_level_completed(1), "Completed level state is visible")
+	var completed_button := levels.get_node("Level1Button") as Button
+	_expect_true(not completed_button.text.contains("✓"), "Completed level avoids an unsupported technical glyph")
 	levels.queue_free()
 	await process_frame
 
@@ -399,6 +429,8 @@ func _test_all_level_configs_and_assets() -> void:
 	_expect_true(load("res://assets/generated/closed_box.png") is Texture2D, "Closed-box asset loads")
 	_expect_true(load("res://assets/generated/startup_splash.png") is Texture2D, "Russian startup splash loads")
 	_expect_true(load("res://assets/generated/startup_splash_en.png") is Texture2D, "English startup splash loads")
+	_expect_true(load("res://assets/ui/countdown_go_ru.png") is Texture2D, "Russian countdown wordmark loads")
+	_expect_true(load("res://assets/ui/countdown_go_en.png") is Texture2D, "English countdown wordmark loads")
 
 
 func _test_spawn_director_deterministic_seed() -> void:

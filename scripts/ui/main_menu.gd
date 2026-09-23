@@ -42,13 +42,19 @@ func configure(save_data: Dictionary, monetization_service: MonetizationService 
 	_monetization = monetization_service
 	if _monetization != null and not _monetization.entitlement_changed.is_connected(refresh_monetization):
 		_monetization.entitlement_changed.connect(refresh_monetization)
+	if _monetization != null and not _monetization.product_info_changed.is_connected(refresh_monetization):
+		_monetization.product_info_changed.connect(refresh_monetization)
 	refresh_monetization()
 
 
 func refresh_monetization() -> void:
 	var button := get_node_or_null("RemoveAdsButton") as Button
 	if button != null:
-		button.visible = _monetization != null and _monetization.are_purchases_enabled() and not _monetization.is_ads_removed()
+		button.visible = _monetization != null and _monetization.is_remove_ads_offer_available() and not _monetization.is_ads_removed()
+		if _monetization != null:
+			var price := _monetization.get_remove_ads_price()
+			button.text = tr("REMOVE_ADS") if price.is_empty() else "%s\n%s" % [tr("REMOVE_ADS"), price]
+			button.icon = null
 		_layout()
 
 

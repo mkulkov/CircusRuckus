@@ -26,7 +26,23 @@ func _ready() -> void:
 	add_child(_close_button)
 	resized.connect(_layout)
 	_layout()
+	_refresh_translations()
 	hide()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED:
+		_refresh_translations()
+
+
+func _refresh_translations() -> void:
+	if _music == null or _sound == null or _haptics == null or _close_button == null:
+		return
+	_music.text = tr("MUSIC")
+	_sound.text = tr("SOUNDS")
+	_haptics.text = tr("HAPTICS")
+	_close_button.text = tr("DONE")
+	queue_redraw()
 
 
 func configure(data: Dictionary) -> void:
@@ -36,6 +52,7 @@ func configure(data: Dictionary) -> void:
 
 
 func open(data: Dictionary) -> void:
+	_refresh_translations()
 	configure(data)
 	show()
 

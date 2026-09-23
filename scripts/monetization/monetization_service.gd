@@ -3,6 +3,7 @@ extends Node
 
 signal entitlement_changed(ads_removed: bool)
 signal purchase_failed
+signal product_info_changed
 signal platform_pause_requested
 signal platform_resume_requested
 signal banner_status_changed(visible: bool, reason: String)
@@ -26,6 +27,9 @@ var _adapter_initialization_started := false
 var _adapter_ready := false
 var _platform_lifecycle_active := false
 var _audio_pause_reasons: Dictionary = {}
+var _remove_ads_price := ""
+var _remove_ads_currency_icon: Texture2D
+var _currency_icon_request: HTTPRequest
 
 func configure(save_manager: Node, audio_manager: Node = null) -> void:
 	_save_manager = save_manager
@@ -52,6 +56,7 @@ func _prepare_adapter() -> void:
 	_adapter.interstitial_opened.connect(_on_interstitial_opened)
 	_adapter.interstitial_finished.connect(_on_interstitial_finished)
 	_adapter.purchase_finished.connect(_on_purchase_finished)
+	_adapter.product_info_updated.connect(_on_product_info_updated)
 	_adapter.platform_pause_requested.connect(_on_platform_pause_requested)
 	_adapter.platform_resume_requested.connect(_on_platform_resume_requested)
 	_adapter.banner_status_changed.connect(_on_banner_status_changed)
@@ -84,7 +89,9 @@ func _on_adapter_initialized(success: bool) -> void:
 	if not success:
 		return
 	_adapter_ready = true
-	_adapter.restore_entitlements()
+	if not _purchases_disabled:
+		_adapter.load_catalog()
+		_adapter.restore_entitlements()
 	if not ads_removed:
 		_set_banner_visible(true)
 
@@ -107,6 +114,20 @@ func is_platform_lifecycle_active() -> bool:
 
 func are_purchases_enabled() -> bool:
 	return not _purchases_disabled
+
+
+func is_remove_ads_offer_available() -> bool:
+	if _purchases_disabled:
+		return false
+	return not OS.has_feature("yandex_games") or not _remove_ads_price.is_empty()
+
+
+func get_remove_ads_price() -> String:
+	return _remove_ads_price
+
+
+func get_remove_ads_currency_icon() -> Texture2D:
+	return _remove_ads_currency_icon
 
 func show_banner(visible: bool = true) -> void:
 	if _adapter == null or (visible and ads_removed):
@@ -198,6 +219,47 @@ func _on_purchase_finished(success: bool, product_id: String) -> void:
 		entitlement_changed.emit(true)
 		return
 	purchase_failed.emit()
+
+
+func _on_product_info_updated(product_id: String, price: String, currency_icon_url: String) -> void:
+	if product_id != REMOVE_ADS_PRODUCT or price.is_empty():
+		return
+	_remove_ads_price = price
+	product_info_changed.emit()
+	if currency_icon_url.is_empty() or not is_inside_tree():
+		return
+	if _currency_icon_request != null:
+		_currency_icon_request.queue_free()
+	_currency_icon_request = HTTPRequest.new()
+	add_child(_currency_icon_request)
+	_currency_icon_request.request_completed.connect(_on_currency_icon_downloaded)
+	var request_error := _currency_icon_request.request(currency_icon_url)
+	if request_error != OK:
+		_currency_icon_request.queue_free()
+		_currency_icon_request = null
+
+
+func _on_currency_icon_downloaded(
+	result: int,
+	response_code: int,
+	_headers: PackedStringArray,
+	body: PackedByteArray
+) -> void:
+	if _currency_icon_request != null:
+		_currency_icon_request.queue_free()
+		_currency_icon_request = null
+	if result != HTTPRequest.RESULT_SUCCESS or response_code < 200 or response_code >= 300:
+		return
+	var image := Image.new()
+	var load_error := image.load_png_from_buffer(body)
+	if load_error != OK:
+		load_error = image.load_webp_from_buffer(body)
+	if load_error != OK:
+		load_error = image.load_svg_from_buffer(body)
+	if load_error != OK:
+		return
+	_remove_ads_currency_icon = ImageTexture.create_from_image(image)
+	product_info_changed.emit()
 
 
 func _set_banner_visible(visible: bool) -> void:

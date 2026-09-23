@@ -29,12 +29,15 @@ func _run() -> void:
 	var gameplay := packed_scene.instantiate()
 	if capture_mode == "main_menu":
 		gameplay.configure({"highest_unlocked_level": 3, "completed_levels": [1, 2]})
+	elif capture_mode == "main_menu_remove_ads":
+		var monetization := MonetizationService.new()
+		monetization._remove_ads_price = "49 YAN"
+		root.add_child(monetization)
+		gameplay.configure({"highest_unlocked_level": 3, "completed_levels": [1, 2]}, monetization)
 	elif capture_mode == "level_select":
 		gameplay.configure({"highest_unlocked_level": 4, "completed_levels": [1, 2, 3], "best_scores": {"1": 320, "2": 410, "3": 380}})
 	root.add_child(gameplay)
 	if capture_mode == "main_menu_remove_ads":
-		var remove_ads := gameplay.get_node("RemoveAdsButton") as Button
-		remove_ads.visible = true
 		gameplay._layout()
 	if capture_mode == "settings":
 		gameplay.open({"music_enabled": true, "sound_enabled": true, "haptics_enabled": true})
@@ -86,6 +89,10 @@ func _run() -> void:
 		gameplay.spawn_director.stop()
 		gameplay.game_controller.pause_level()
 		await create_timer(0.15, true).timeout
+	elif capture_mode == "countdown_final":
+		gameplay.spawn_director.stop()
+		gameplay.session_overlay.show_countdown(tr("COUNTDOWN_GO"))
+		await create_timer(0.20, true).timeout
 	elif capture_mode in ["result_win", "result_remove_ads"]:
 		gameplay.game_controller.begin_running()
 		gameplay.spawn_director.stop()
