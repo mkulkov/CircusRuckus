@@ -37,7 +37,7 @@ COMBO,COMBO,КОМБО
 GOLD_VALUE,GOLD %d/%d,ЗОЛОТО %d/%d
 CONFUSION_VALUE,CONFUSION %d,ПУТАНИЦА %d
 HAMMER_CONFUSED,WRONG BOX!,МОЛОТОК СБИЛСЯ!
-MISS_LIFE,MISS! -1 LIFE,ПРОМАХ! -1 ЖИЗНЬ
+MISS,MISS!,ПРОМАХ!
 SECONDS_BONUS,+10 SEC,+10 СЕК
 LIFE_BONUS,+1 LIFE,+1 ЖИЗНЬ
 FULL,FULL,ПОЛНО

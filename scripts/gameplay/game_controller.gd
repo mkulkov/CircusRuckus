@@ -195,11 +195,9 @@ func objectives_met() -> bool:
 	return score >= target_score and max_combo >= required_max_combo and golden_hits >= required_golden_hits
 
 
-func resolve_empty_hit(preserve_life: bool = false) -> void:
+func resolve_empty_hit() -> void:
 	if state == GameState.RUNNING:
 		reset_combo()
-		if not preserve_life:
-			lose_life()
 
 
 func resolve_scoring_miss() -> void:

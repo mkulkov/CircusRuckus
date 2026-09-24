@@ -29,7 +29,7 @@ window/handheld/orientation=1
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/RuStoreGodotCore/plugin.cfg", "res://addons/RuStoreGodotPay/plugin.cfg")
+enabled=PackedStringArray("res://addons/RuStoreGodotCore/plugin.cfg", "res://addons/RuStoreGodotPay/plugin.cfg", "res://addons/GodotAndroidYandexAds/plugin.cfg")
 
 [input_devices]
 
@@ -43,8 +43,8 @@ locale/fallback="ru"
 [monetization]
 
 rustore/yandex_appmetrica_api_key=""
-rustore/yandex_banner_id=""
-rustore/yandex_interstitial_id=""
+rustore/yandex_banner_id="R-M-20038632-1"
+rustore/yandex_interstitial_id="R-M-20038632-2"
 
 [rendering]
 

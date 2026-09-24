@@ -3,7 +3,7 @@
 Игра использует единый `MonetizationService` и выбирает адаптер по export-feature:
 
 - `yandex_games` / `vk_mini_apps` — web JavaScript bridge из `web/portrait_shell.html`;
-- Android — `RuStoreMonetizationAdapter` и RuStore Pay SDK 11.1.0; Yandex Mobile Ads 7.18.3 остаётся необязательным плагином и не включается в текущий RuStore AAB;
+- Android — `RuStoreMonetizationAdapter` и RuStore Pay SDK 11.1.0; для следующей RuStore-сборки включены Yandex Mobile Ads 7.18.7 и адаптер медиации VK Реклама (ex. myTarget) 5.27.4.1;
 - редактор и автоматические тесты — детерминированный `DebugMonetizationAdapter` без выдачи entitlement.
 
 ## Поведение игры
@@ -38,9 +38,10 @@ Export-feature `monetization_demo` включает явно маркирова�
 
 1. Яндекс Игры: production-архив включает постоянный товар `remove_ads`. В Консоли должен оставаться активный товар с точно таким ID; перед повторной модерацией нужно проверить через debug-панель каталог, смену mock-валюты, успешную покупку, исчезновение всей внутриигровой рекламы и восстановление права после перезапуска/на другом устройстве.
 2. VK Mini Apps: подключить текущий VK Bridge, зарегистрировать рекламные блоки и согласовать платёжный контракт/товар. В текущем bridge-слое VK-покупка намеренно не имитируется: нужны выданные VK `app_id`/товар/сообщество и подтвержденный способ оплаты.
-3. RuStore: в проект уже добавлены официальные `RuStoreGodotPay`/`RuStoreGodotCore` 11.1.0. В `android/build/res/values/rustore_values.xml` заменить `0` на числовой ID приложения из RuStore Console и зарегистрировать non-consumable товар `remove_ads`. Необязательный Android-плагин Yandex Mobile Ads 7.18.3 хранится в проекте, но отключён и исключён из текущего RuStore AAB; его идентификаторы в `project.godot` нужны только для отдельной сборки с рекламой. BillingClient не используется.
-4. На вкладке **Реклама** в Консоли Яндекс Игр включить sticky-баннер для мобильной портретной ориентации **Внизу** и включить **Использовать API для показа sticky-баннера**. Для десктопа отдельно включить sticky-баннер на десктопе. В debug-консоли проверить строку `[ClownSmash][Ads] Sticky banner visible=true reason=`; `ADV_IS_NOT_CONNECTED` означает, что баннер не подключён в кабинете.
-5. Проверить test users/sandbox, privacy/age/consent и модерацию каждой площадки.
+3. RuStore: в проект добавлены официальные `RuStoreGodotPay`/`RuStoreGodotCore` 11.1.0 и товар `remove_ads`. Текущая опубликованная/загруженная версия RuStore не содержит рекламы. Следующую версию нужно выпустить с большим `versionCode` после проверки на устройстве; BillingClient не используется.
+4. Android-реклама: проект использует блоки РСЯ `R-M-20038632-1` (баннер) и `R-M-20038632-2` (межстраничная реклама). В их настройках медиации 2026-09-23 добавлен VK In-App Bidding с блоками `2065554` (баннер) и `2065557` (полноэкранный). Приложение VK `3516015` восстановлено из архива и находится в тестовом режиме; приложение РСЯ `20038632` тоже в тестовом режиме. Для выхода из тестового режима проверьте ссылку на опубликованную страницу RuStore в обоих кабинетах, параметры конфиденциальности/согласия, блокировки креативов и фактические показы на устройстве. Не публиковать рекламную сборку до этих проверок.
+5. На вкладке **Реклама** в Консоли Яндекс Игр включить sticky-баннер для мобильной портретной ориентации **Внизу** и включить **Использовать API для показа sticky-баннера**. Для десктопа отдельно включить sticky-баннер на десктопе. В debug-консоли проверить строку `[ClownSmash][Ads] Sticky banner visible=true reason=`; `ADV_IS_NOT_CONNECTED` означает, что баннер не подключён в кабинете.
+6. Проверить test users/sandbox, privacy/age/consent и модерацию каждой площадки.
 
 Яндекс автоматически показывает собственную полноэкранную рекламу на старте всех игр. У неё нет callback-функций `showFullscreenAdv()`, и она обрабатывается через `game_api_pause` / `game_api_resume`. Игра сама никогда не запрашивает interstitial для уровня 1; запросы `showFullscreenAdv()` начинаются только с уровня 2.
 
@@ -61,3 +62,9 @@ Export-feature `monetization_demo` включает явно маркирова�
 - https://github.com/VKCOM/vk-bridge
 
 Editor/headless checks cannot prove live ad inventory, payment completion, purchase restoration across accounts/devices, VK moderation, or RuStore Android plugin behavior.
+
+## Android-медиация: проверено 2026-09-23
+
+- [Совместимость адаптера VK с Yandex Mobile Ads SDK 7](https://ads.yandex.com/helpcenter/ru/dev/android7/mytarget): SDK 7.18.7 и `mobileads-mytarget:5.27.4.1`. Существующий Godot Android-плагин использует ветку SDK 7; переход на SDK 8 требует отдельной проверки его Java API.
+- [Настройка медиации в РСЯ](https://ads.yandex.com/helpcenter/ru/monetization/yandex-mediation/setup): для VK нужны блоки одинаковых форматов и их ID в настройках блоков РСЯ. Настройки сети/статистики и требования к ссылке на магазин проверять в кабинете.
+- [Проверка тестовых показов](https://ads.yandex.com/helpcenter/en/dev/android7/demo-blocks): собранная AAB подтверждает включение зависимостей, но не успешную загрузку объявления, работу VK bidding или выплату.

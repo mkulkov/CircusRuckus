@@ -30,9 +30,9 @@ class AndroidExportPlugin extends EditorExportPlugin:
 
 	func _get_android_dependencies(platform, debug):
 		if debug:
-			return PackedStringArray(["com.yandex.android:mobileads:7.18.3"])
+			return PackedStringArray(["com.yandex.android:mobileads:7.18.7", "com.yandex.ads.mediation:mobileads-mytarget:5.27.4.1"])
 		else:
-			return PackedStringArray(["com.yandex.android:mobileads:7.18.3"])
+			return PackedStringArray(["com.yandex.android:mobileads:7.18.7", "com.yandex.ads.mediation:mobileads-mytarget:5.27.4.1"])
 
 
 	func _get_name():

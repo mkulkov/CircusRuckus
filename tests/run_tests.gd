@@ -381,7 +381,7 @@ func _test_scoring_and_combo() -> void:
 	game_controller.resolve_empty_hit()
 	_expect_equal(game_controller.score, 20, "Empty hit preserves score")
 	_expect_equal(game_controller.combo_count, 0, "Empty hit resets combo")
-	_expect_equal(game_controller.lives, 2, "Empty hit removes one life")
+	_expect_equal(game_controller.lives, 3, "Empty hit preserves lives")
 	game_controller.resolve_scoring_hit()
 	game_controller.resolve_scoring_miss()
 	_expect_equal(game_controller.combo_count, 0, "Missed Normal resets combo")
@@ -564,7 +564,7 @@ func _test_all_character_rules() -> void:
 	_expect_equal(game_controller.lives, lives_before_ignored_bomb, "Escaped Glutton keeps all lives")
 	game_controller.resolve_character_escape(&"clock")
 	_expect_equal(game_controller.lives, lives_before_ignored_bomb, "Escaped Clock keeps all lives")
-	game_controller.resolve_empty_hit(true)
+	game_controller.resolve_empty_hit()
 	_expect_equal(game_controller.lives, lives_before_ignored_bomb, "Empty strike missing an active bonus keeps all lives")
 	game_controller.queue_free()
 
@@ -980,7 +980,7 @@ func _test_core_interaction_scene() -> void:
 	await create_timer(0.38).timeout
 	_expect_equal(gameplay.game_controller.score, 10, "Empty-slot impact does not change score")
 	_expect_equal(gameplay.game_controller.combo_count, 0, "Empty-slot impact resets combo")
-	_expect_equal(gameplay.game_controller.lives, 2, "Empty-slot impact removes one life")
+	_expect_equal(gameplay.game_controller.lives, 3, "Empty-slot impact preserves lives")
 	await create_timer(0.40).timeout
 	_expect_true(gameplay.board_controller.get_slot(4).is_idle(), "Hit Normal hides and returns its slot to IDLE")
 	_expect_true(gameplay.debug_spawn_normal(4, 3.4), "Cleared slot can repeat the spawn cycle")

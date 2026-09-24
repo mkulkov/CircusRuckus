@@ -133,7 +133,7 @@ func _on_hammer_impact(slot_index: int) -> void:
 		board_controller.play_empty_hit(slot_index)
 		var active_types: Array[StringName] = board_controller.get_active_character_types()
 		var missed_bonus := &"clock" in active_types or &"glutton" in active_types
-		game_controller.resolve_empty_hit(missed_bonus)
+		game_controller.resolve_empty_hit()
 		if missed_bonus:
 			var impact_global: Vector2 = board_controller.get_global_transform() * board_controller.get_slot_impact_position(slot_index)
 			for active_type in active_types:
@@ -142,7 +142,7 @@ func _on_hammer_impact(slot_index: int) -> void:
 			_impact_fx_layer.show_score(impact_global, tr("BONUS_MISSED"), true)
 		else:
 			var impact_global: Vector2 = board_controller.get_global_transform() * board_controller.get_slot_impact_position(slot_index)
-			_impact_fx_layer.show_score(impact_global, tr("MISS_LIFE"))
+			_impact_fx_layer.show_score(impact_global, tr("MISS"))
 		audio_manager.play_event(&"empty_hit")
 
 

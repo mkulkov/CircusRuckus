@@ -1,5 +1,23 @@
 # PROGRESS.md — Цирковой переполох
 
+## 2026-09-23 — Android-реклама РСЯ + VK (подготовлено, не опубликовано)
+
+- Включён существующий Godot-плагин Yandex Mobile Ads в RuStore-экспорт. Зависимости обновлены до совместимой пары SDK 7.18.7 и адаптера VK Реклама (ex. myTarget) 5.27.4.1 по официальной документации; идентификаторы действующих блоков РСЯ добавлены в настройки проекта.
+- В VK Рекламе приложение «Цирковой переполох» `3516015` и два блока восстановлены из архива в тестовый режим. В РСЯ к баннеру `R-M-20038632-1` привязан VK-блок `2065554`, к межстраничному блоку `R-M-20038632-2` — VK-блок `2065557`; обе связи In-App Bidding сохранены и повторно прочитаны в кабинете.
+- Проверочная debug AAB собрана вне `builds/`, существующая release AAB и версии в RuStore не заменялись. Импорт проекта и полный тестовый скрипт прошли; известные предупреждения ObjectDB/ресурсов при выходе тестов остались.
+- До релиза: ссылка на магазин и выход из тестового режима в обоих рекламных кабинетах, проверка согласия/политики конфиденциальности и маркировки данных, тест баннера и interstitial на Android-устройстве, затем отдельная release-сборка с увеличенным `versionCode` и публикация через RuStore.
+
+## 2026-09-23 — RuStore release-candidate preparation
+
+- Added `promotion/rustore_2026-09-23/` with a filled 512×512 RGB icon, three visually reviewed current Russian 9:16 gameplay screenshots, verified dimensions/file sizes, Russian store-card copy and SHA-256 checksums.
+- Added `docs/rustore_release_checklist.md`, refreshed against the current official RuStore publication, AAB-signing, Pay SDK and sandbox-test documentation.
+- Built and uploaded the signed final candidate `builds/clown-smash-rustore.aab` (48,307,799 bytes, SHA-256 `6F5ABACB17E20A1FFD25F231A7290DC33BD752DE8F793622A64C224D393C7E32`). JAR verification passed with the expected RSA-4096 upload certificate; archive filtering confirmed RuStore Pay is present and Yandex Ads, tests, tools, promotion, verification, references and demo video are absent.
+- Verified merged Android metadata: package `ru.mkulkov.circusruckus`, version `1.0` (`versionCode=1`), min SDK 24, target SDK 36, and declared permissions.
+- Full Godot tests and smoke test passed. The test runner still reports its known ObjectDB/resource-use warnings at exit.
+- Configured RuStore application ID `2063757594`, then used the Public API to upload the AAB, 512x512 icon and three portrait screenshots to draft `2064828374`. API verification reports version `1.0` (`versionCode=1`), status `DRAFT`, publication type `MANUAL`, and three active phone screenshots. No moderation or publication endpoint was called.
+- Refilled draft `2064828374`: saved Russian short/full descriptions, public support email, Arcade/Casual categories, age 6+, search tags, content labels and RuStore Pay integration through the Console. Because saving the web form clears API-only attachments, the AAB, icon and three screenshots were uploaded again through the Public API after the final browser save. Final API verification reports version `1.0` (`versionCode=1`), `DRAFT`, `MANUAL`, three screenshots and no moderation date; no moderation endpoint was called.
+- Product `remove_ads` is published as a non-consumable purchase priced at 299 RUB. After refreshing the Console, draft `2064828374` shows `Встроенные покупки -> Товары`; Pay sandbox purchase/decline/restart-restore verification remains pending.
+
 ## 2026-09-16 — Bilingual horizontal gameplay videos
 
 - Added `promotion/gameplay_videos_bilingual_2026-09-16/` with new Russian and English 1920x1080 (16:9) H.264/AAC videos at 60 FPS. Each opens with its matching localized startup splash and then shows continuous gameplay from the matching localized runtime recording.
@@ -620,3 +638,12 @@ Planned:
 - Добавлен английский эквивалент утверждённого русского рекламного ролика: `promotion/advertising_video_en_2026-09-16/clown_smash_ad_en_vertical_1080x1920_15s.mp4`.
 - Сохранены монтаж, тайминг, музыка и стиль цирковых титров; использованы английские HUD, заставка, игровые скриншоты и естественные английские рекламные формулировки.
 - Проверка пройдена: 15.000 с, 1080×1920, 60 FPS, H.264 `yuv420p`, AAC 48 кГц stereo, полное декодирование без ошибок, крупные кадры титров и секундный контактный лист просмотрены визуально.
+
+### 2026-09-24 — VK Mini Apps Web delivery refreshed
+
+- Re-exported `Web - VK Mini Apps` with Godot 4.7.2 from the current checkout and prepared `builds/vk-mini-apps-delivery-2026-09-24/` for VK Mini App `54768735`.
+- The Web ZIP has nine root runtime files and `index.html`; VK Bridge 3.0.2 bootstrap and `VKWebAppInit`, banner and interstitial requests are present. Cabinet media ZIP and RU/EN publication copy are included with a fresh SHA-256 manifest.
+- Godot editor/import, `tests/run_tests.gd`, and `tests/smoke_test.gd` passed. ZIP entry, hosting config, credential absence, and manifest hash checks passed.
+- VK cabinet upload, dev/production hosting, hosted desktop/mobile runtime, live ad inventory, metadata limits, and moderation remain unverified external steps. No cabinet action was taken.
+
+- Release prep caught and fixed the empty-box rule mismatch: empty strikes now reset combo while preserving lives, and the feedback no longer says a life was lost. Full tests, gameplay smoke, Web export, and regenerated delivery archive passed afterward.
