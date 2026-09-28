@@ -7,6 +7,11 @@
 /android/build/.gradle/
 /android/build/build/
 /android/build/libs/
+/android/build/assetPackInstallTime/build/
+/android/build/assetPackInstallTime/src/
+
+# Local browser automation traces
+/.playwright-mcp/
 
 # Signing and Play upload artifacts
 /cert_rustore.pem
