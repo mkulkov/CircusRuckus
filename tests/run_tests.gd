@@ -83,13 +83,17 @@ func _test_monetization_demo_contract() -> void:
 	await process_frame
 	_expect_true(service.is_ads_removed(), "Demo purchase grants the durable ads_removed entitlement")
 	_expect_true(bool(save_manager.load_data()["ads_removed"]), "Demo purchase persists ads_removed to disk")
-	service._on_product_info_updated("remove_ads", "49 YAN", "")
-	_expect_equal(service.get_remove_ads_price(), "49 YAN", "Remove Ads offer keeps the SDK-provided portal price")
+	service._on_product_info_updated("remove_ads", "Отключить рекламу", "49 ₽", "")
+	_expect_equal(service.get_remove_ads_price(), "49 ₽", "Remove Ads offer keeps the SDK-provided portal price")
+	_expect_equal(service.get_remove_ads_title(), "Отключить рекламу", "Remove Ads offer keeps the SDK-provided product title")
 	var offer_menu_scene := load("res://scenes/ui/MainMenu.tscn") as PackedScene
 	var offer_menu := offer_menu_scene.instantiate()
 	root.add_child(offer_menu)
+	service.ads_removed = false
 	offer_menu.configure({}, service)
 	var offer_button := offer_menu.get_node("RemoveAdsButton") as Button
+	_expect_true(offer_button.visible, "Remove Ads offer appears after SDK catalog metadata loads")
+	_expect_equal(offer_button.text, "Отключить рекламу\n49 ₽", "Remove Ads label combines SDK product title and formatted price")
 	_expect_true(offer_button.icon == null, "Remove Ads button does not display a currency icon")
 	offer_menu.queue_free()
 

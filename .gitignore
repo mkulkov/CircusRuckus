@@ -9,6 +9,7 @@
 /android/build/libs/
 /android/build/assetPackInstallTime/build/
 /android/build/assetPackInstallTime/src/
+/android/build/stale-assets-backup-*/
 
 # Local browser automation traces
 /.playwright-mcp/
@@ -17,19 +18,77 @@
 /cert_rustore.pem
 /pepk_out.zip
 
-# Raw promotional recordings are retained locally; publish only final media
-/promotion/yandex_games_en_2026-09-16/video/raw/
-/promotion/yandex_games_ru_2026-09-16/video/raw/
+# Store and advertising media are kept locally, outside the game source tree in Git
+/promotion/
 
 # Test and editor reports
 /reports/
 /verification/
+/artifacts/
 
 # Local deployment dependencies
 /tools/vk-deploy/node_modules/
+/tools/vk-deploy/build.zip
+
+# Intermediate image-generation sheets; keep only referenced game textures
+/assets/generated/closed_box_source/
+/assets/generated/closed_box_processed/
+/assets/generated/special_clowns_source/
+/assets/generated/special_clowns/
+/assets/generated/special_clowns_processed/
+/assets/generated/special_clowns_processed_review/
 
 # OS and IDE files
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+
+# Local caches, generated output and signing material
+.godot/
+*.translation
+.playwright-mcp/
+/artifacts/
+/build/
+/builds/
+/exports/
+/reports/
+/verification/
+/screenshots/
+/captures/
+/recordings/
+/work/
+/tmp/
+*.apk
+*.aab
+*.apks
+*.ipa
+*.pck
+*.exe
+*.keystore
+*.jks
+*.p12
+*.pem
+*_PEPK.zip
+.env
+.env.*
+config/private/
+
+# Local agent instructions and promotional working files
+/AGENTS.md
+/.agents/
+/.agent/
+/prompts/
+/promotion/
+*.zip
+
+# Keep Godot indexing markers in source control
+!/promotion/
+/promotion/*
+!/promotion/.gdignore
+!/verification/
+/verification/*
+!/verification/.gdignore
+!/builds/
+/builds/*
+!/builds/.gdignore

@@ -58,6 +58,7 @@ func _on_catalog_loaded(arguments: Array) -> void:
 		return
 	product_info_updated.emit(
 		product_id,
+		str(data.get("title", "")),
 		str(data.get("price", "")),
 		str(data.get("currency_icon_url", ""))
 	)

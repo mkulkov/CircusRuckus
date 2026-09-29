@@ -28,6 +28,7 @@ var _adapter_ready := false
 var _platform_lifecycle_active := false
 var _audio_pause_reasons: Dictionary = {}
 var _remove_ads_price := ""
+var _remove_ads_title := ""
 var _remove_ads_currency_icon: Texture2D
 var _currency_icon_request: HTTPRequest
 
@@ -119,11 +120,14 @@ func are_purchases_enabled() -> bool:
 func is_remove_ads_offer_available() -> bool:
 	if _purchases_disabled:
 		return false
-	return not OS.has_feature("yandex_games") or not _remove_ads_price.is_empty()
+	return not _remove_ads_title.is_empty() and not _remove_ads_price.is_empty()
 
 
 func get_remove_ads_price() -> String:
 	return _remove_ads_price
+
+func get_remove_ads_title() -> String:
+	return _remove_ads_title
 
 
 func get_remove_ads_currency_icon() -> Texture2D:
@@ -221,9 +225,10 @@ func _on_purchase_finished(success: bool, product_id: String) -> void:
 	purchase_failed.emit()
 
 
-func _on_product_info_updated(product_id: String, price: String, currency_icon_url: String) -> void:
-	if product_id != REMOVE_ADS_PRODUCT or price.is_empty():
+func _on_product_info_updated(product_id: String, title: String, price: String, currency_icon_url: String) -> void:
+	if product_id != REMOVE_ADS_PRODUCT or title.strip_edges().is_empty() or price.is_empty():
 		return
+	_remove_ads_title = title.strip_edges()
 	_remove_ads_price = price
 	product_info_changed.emit()
 	if currency_icon_url.is_empty() or not is_inside_tree():

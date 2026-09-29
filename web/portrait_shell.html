@@ -246,6 +246,7 @@
 						catch (error) { console.warn('[ClownSmash][Yandex] Currency icon unavailable', error); }
 						finishJson(callback, {
 							product_id: product.id,
+							title: product.title || product.name || '',
 							price: product.price || '',
 							currency_icon_url: currencyIconUrl
 						});

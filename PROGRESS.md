@@ -1,5 +1,19 @@
 # PROGRESS.md — Цирковой переполох
 
+## 2026-09-29 — Очистка Android-экспорта
+
+- Во всех Android-пресетах исключены тесты, инструменты, промо, проверки и исходные заготовки графики; обычные игровые APK и релизный AAB не включают демо-видео. В QA-профиле монетизации демо-ролик сохранён как функциональный ресурс.
+- Release RuStore продолжает собираться как AAB только для arm64-v8a; APK-профили оставлены для QA и эмулятора.
+- Проверка экспорта выполняется отдельно; фактический размер нового артефакта ещё не измерен.
+
+## 2026-09-28 — Очистка проекта
+
+- Папка `promotion/` оставлена на диске, но исключена из Git: она содержит материалы для магазинов и рекламы, не требуемые для сборки игры. Ранее удалённые `artifacts/`, резервная Android-копия и черновые листы генерации также исключены из индекса.
+- Удалены локальные сборки, кеши Godot/Gradle/браузера, проверочные скриншоты и видео, промежуточные материалы в `artifacts/`, резервная копия Android-ассетов и неиспользуемые исходные листы генерации в `assets/generated/`.
+- По решению пользователя готовые материалы в `promotion/` сохранены. Игровые ресурсы, эталонное изображение для визуального сравнения, демо-ролик и Android-шаблон сохранены.
+- `.gitignore` дополнен для удалённых временных каталогов и результатов генерации.
+- После очистки импорт Godot завершился с кодом 0, полный `tests/run_tests.gd` и `tests/smoke_test.gd` прошли. Первый запуск тестов в песочнице не смог записать `user://`; повторный запуск с доступом к каталогу пользователя прошёл. У тестового раннера остались известные предупреждения ObjectDB/ресурсов при выходе.
+
 ## 2026-09-23 — Android-реклама РСЯ + VK (подготовлено, не опубликовано)
 
 - Включён существующий Godot-плагин Yandex Mobile Ads в RuStore-экспорт. Зависимости обновлены до совместимой пары SDK 7.18.7 и адаптера VK Реклама (ex. myTarget) 5.27.4.1 по официальной документации; идентификаторы действующих блоков РСЯ добавлены в настройки проекта.
@@ -647,3 +661,30 @@ Planned:
 - VK cabinet upload, dev/production hosting, hosted desktop/mobile runtime, live ad inventory, metadata limits, and moderation remain unverified external steps. No cabinet action was taken.
 
 - Release prep caught and fixed the empty-box rule mismatch: empty strikes now reset combo while preserving lives, and the feedback no longer says a life was lost. Full tests, gameplay smoke, Web export, and regenerated delivery archive passed afterward.
+
+### 2026-09-28 — Android Yandex demo-ad device QA
+
+- Updated the separate `Android - Monetization Demo` export profile to exercise the native Yandex Mobile Ads SDK with official demo placements (`demo-banner-yandex`, `demo-interstitial-yandex`); the production `R-M-*` IDs remain unchanged. The first ad-only APK had `no_purchases` set, which hid the existing remove-ads offer; the refreshed QA profile omits that flag so the menu button is visible. Purchase itself remains untested and was not invoked.
+- Added the missing adaptive launcher-icon background resource required by the custom Android template and supplied the matching Godot 4.7.2 debug AAR from the local Gradle cache so this QA APK can build.
+- Exported and installed `builds/monetization-demo/clown-smash-rustore-demo.apk` on the Infinix X663 under package `ru.mkulkov.circusruckus.monetizationdemo`; it does not replace the main app package.
+- Yandex Mobile Ads 7.18.7 initialized on device. Logcat confirmed banner integration and `onBannerAdLoaded`, then interstitial integration, `onInterstitialAdLoaded` and `onInterstitialAdShown`. The actual demo creative was visible in the captured screen.
+- Full `tests/run_tests.gd` passed. Godot reported pre-existing ObjectDB/resource leak warnings at test shutdown; no test assertion failed.
+- Full-resolution device captures are in `verification/yandex_ads_demo_device_2026-09-28/`.
+
+### 2026-09-28 — RuStore production monetization release prep
+
+- Kept the production Yandex placements (`R-M-20038632-1` banner and `R-M-20038632-2` interstitial) in the RuStore profile; the demo-ad feature remains isolated to its QA profile.
+- Connected RuStore Pay `get_products([remove_ads])` and now show the remove-ads action only after the SDK returns a non-consumable product title and formatted price. The button combines those two SDK fields; it no longer substitutes a hard-coded label/amount on Android.
+- Retained one-step purchase and entitlement restoration through `get_purchases()`, granting/persisting `ads_removed` only for a confirmed `remove_ads` non-consumable purchase. No purchase was invoked.
+- Updated the Android RuStore release preset to versionCode 3 / versionName 1.0.2 and an explicit release artifact path.
+- Full `tests/run_tests.gd` passed, including the SDK title+price button contract; Godot reported existing ObjectDB/resource-leak warnings at shutdown.
+
+### 2026-09-29 — Signed RuStore release candidate
+
+- Exported signed `builds/clown-smash-rustore-release.aab` using the existing Android release keystore from the local signing directory; Godot signing inputs were supplied through process-scoped environment variables, not saved in `export_presets.cfg`.
+- Verified the AAB JAR signature and confirmed its SHA-256 signing-certificate fingerprint matches the release certificate in the signing bundle. The artifact is versionCode 3 / versionName 1.0.2 per the release preset.
+- Cabinet upload, real billing transaction, purchase restoration against RuStore, live ad fill, and moderation remain unverified; no store upload or publication was performed.
+
+### 2026-09-29 — RuStore startup splash screenshot
+
+- Captured and visually inspected the rendered Russian `StartupSplash` scene at `promotion/rustore_2026-09-29/startup_splash_ru_1080x1920.png` (1080×1920, 9:16, 2,789,022 bytes / 2.66 MiB). It fits RuStore phone screenshot dimensions and size limits as a supplemental image; it does not replace gameplay screenshots.

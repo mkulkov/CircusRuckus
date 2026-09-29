@@ -101,7 +101,8 @@ func refresh_monetization() -> void:
 		_remove_ads_button.visible = _monetization != null and _monetization.is_remove_ads_offer_available() and not _monetization.is_ads_removed()
 		if _monetization != null:
 			var price := _monetization.get_remove_ads_price()
-			_remove_ads_button.text = tr("REMOVE_ADS") if price.is_empty() else "%s\n%s" % [tr("REMOVE_ADS"), price]
+			var title := _monetization.get_remove_ads_title()
+			_remove_ads_button.text = tr("REMOVE_ADS") if title.is_empty() or price.is_empty() else "%s\n%s" % [title, price]
 			_remove_ads_button.icon = null
 		_layout_buttons()
 		queue_redraw()
