@@ -1,5 +1,11 @@
 # PROGRESS.md — Цирковой переполох
 
+## 2026-10-06 — Подписанный RuStore AAB 1.0.4
+
+- Android - RuStore Release Ads поднят до versionName `1.0.4` / versionCode `5`; создан `builds/clown-smash-rustore-1.0.4-release.aab` (56 681 614 байт).
+- `jarsigner -verify` прошёл; SHA-256 сертификата совпадает с предыдущим RuStore AAB (`AB:D1:5F:11:CD:FE:01:5B:77:F1:19:DB:5C:8B:A0:8B:B8:FA:AB:00:38:42:37:21:31:03:C1:A3:02:37:73:5A`). SHA-256 файла: `658D66DCDF4F294A6C8791C09CDAE87928F84F0BF105E936353D881C85DDB7C9`.
+- Headless `tests/smoke_test.gd` прошёл. Сборка локальная; в RuStore не загружалась.
+
 ## 2026-10-06 — Платформенные сборки и отправка на GitHub
 
 - Исходники отправлены в `origin/main` коммитом `0c7ff68` перед экспортами.
