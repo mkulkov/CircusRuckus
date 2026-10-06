@@ -1,5 +1,14 @@
 # PROGRESS.md — Цирковой переполох
 
+## 2026-10-06 — Платформенные сборки и отправка на GitHub
+
+- Исходники отправлены в `origin/main` коммитом `0c7ff68` перед экспортами.
+- RuStore: подписанный AAB `builds/clown-smash-rustore-1.0.3-release-0c7ff68.aab`, версия `1.0.3` (`versionCode=4`), 56 681 643 байта. Экспортная подпись совпала с предыдущим RuStore AAB.
+- VK Mini Apps: Web-пакет из 9 runtime-файлов и ZIP `builds/clown-smash-vk-mini-apps-0c7ff68.zip`, 31 093 629 байт; `Deploy-VK.ps1 -ValidateOnly` прошёл.
+- Яндекс Игры: ZIP `builds/clown-smash-yandex-games-0c7ff68.zip`, 9 файлов, `index.html` в корне, 60 729 192 байта до сжатия и 31 093 577 байт в ZIP.
+- SHA-256 RuStore AAB: `334D674BDD4DB2A54FCCCBCA53102F4557C37633273B4305B5BC0A6A20662294`; VK ZIP: `6AD8BECA6673CA34F45958C76040519FCC5F72B6A6B13C6954A65C458F7735B3`; Yandex ZIP: `786587331464E396BE59D3C9DC8664FCD8F0BCAD8539A6CADB48B76BC334DDBE`.
+- Godot full runner и smoke test прошли; VK/OK/Yandex bridge и VK payment server suites: 17 тестов прошли. Файлы сборок локальные; загрузка в кабинеты, hosted-runtime, sandbox-покупка и публикация не выполнялись.
+
 ## 2026-10-06 — Предложение отключить рекламу перенесено в настройки
 
 - Кнопка «Отключить рекламу» теперь находится в меню настроек, отображается только при доступном товаре и скрывается после покупки.
