@@ -7,6 +7,7 @@ signal product_info_changed
 signal platform_pause_requested
 signal platform_resume_requested
 signal banner_status_changed(visible: bool, reason: String)
+signal ads_unavailable
 
 const REMOVE_ADS_PRODUCT := "remove_ads"
 const AD_PLACEMENT_LEVEL_START := "level_start"
@@ -18,6 +19,7 @@ var _audio_manager: Node
 var _adapter: MonetizationAdapter
 var _demo_presenter: MonetizationDemoPresenter
 var _pending_interstitial: Callable
+var _pending_level_id := 0
 var _purchase_pending := false
 var _audio_muted_for_ad := false
 var _music_was_muted := false
@@ -56,7 +58,9 @@ func _prepare_adapter() -> void:
 	_adapter.initialized.connect(_on_adapter_initialized)
 	_adapter.interstitial_opened.connect(_on_interstitial_opened)
 	_adapter.interstitial_finished.connect(_on_interstitial_finished)
+	_adapter.ad_availability_checked.connect(_on_ad_availability_checked)
 	_adapter.purchase_finished.connect(_on_purchase_finished)
+	_adapter.entitlement_restored.connect(_on_entitlement_restored)
 	_adapter.product_info_updated.connect(_on_product_info_updated)
 	_adapter.platform_pause_requested.connect(_on_platform_pause_requested)
 	_adapter.platform_resume_requested.connect(_on_platform_resume_requested)
@@ -70,7 +74,8 @@ func _start_adapter() -> void:
 	_adapter.initialize()
 
 func refresh_saved_state() -> void:
-	if _save_manager != null:
+	# VK rights belong to the authenticated account and payment mode, not browser storage.
+	if _save_manager != null and not (OS.has_feature("vk_mini_apps") and not OS.has_feature("monetization_demo")):
 		ads_removed = bool(_save_manager.load_data().get("ads_removed", false))
 	if _adapter_ready:
 		_set_banner_visible(not ads_removed)
@@ -140,12 +145,31 @@ func show_banner(visible: bool = true) -> void:
 
 func show_level_start_ad(level_id: int, on_finished: Callable) -> void:
 	var first_level_is_ad_free := level_id <= 1
-	if ads_removed or first_level_is_ad_free or _adapter == null:
+	if ads_removed or _adapter == null or (first_level_is_ad_free and _adapter.platform_name != "vk"):
 		on_finished.call()
 		return
 	if _pending_interstitial.is_valid():
 		return
 	_pending_interstitial = on_finished
+	_pending_level_id = level_id
+	if _adapter.platform_name in ["vk", "ok"]:
+		_adapter.check_ad_availability()
+		return
+	_show_pending_interstitial()
+
+func _on_ad_availability_checked(available: bool) -> void:
+	if not _pending_interstitial.is_valid():
+		return
+	if ads_removed or (available and _pending_level_id <= 1):
+		_complete_pending_level()
+	elif available:
+		_show_pending_interstitial()
+	elif _adapter != null and _adapter.platform_name == "ok":
+		_complete_pending_level()
+	else:
+		ads_unavailable.emit()
+
+func _show_pending_interstitial() -> void:
 	if _demo_presenter != null:
 		_demo_presenter.show_interstitial(_adapter.show_interstitial)
 	else:
@@ -157,10 +181,25 @@ func purchase_remove_ads() -> void:
 	_purchase_pending = true
 	_adapter.purchase(REMOVE_ADS_PRODUCT)
 
-func _on_interstitial_finished(_success: bool) -> void:
+func _on_interstitial_finished(success: bool) -> void:
 	_set_audio_pause_reason(&"interstitial", false)
+	if not success and not ads_removed and _adapter != null and _adapter.platform_name == "vk" and _pending_interstitial.is_valid():
+		ads_unavailable.emit()
+		return
+	_complete_pending_level()
+
+func cancel_pending_level() -> void:
+	_pending_interstitial = Callable()
+	_pending_level_id = 0
+
+func continue_pending_level_after_purchase() -> void:
+	if ads_removed:
+		_complete_pending_level()
+
+func _complete_pending_level() -> void:
 	var callback := _pending_interstitial
 	_pending_interstitial = Callable()
+	_pending_level_id = 0
 	if callback.is_valid():
 		callback.call()
 
@@ -223,6 +262,14 @@ func _on_purchase_finished(success: bool, product_id: String) -> void:
 		entitlement_changed.emit(true)
 		return
 	purchase_failed.emit()
+
+
+func _on_entitlement_restored(owned: bool) -> void:
+	ads_removed = owned
+	if _save_manager != null:
+		_save_manager.set_ads_removed(owned)
+	_set_banner_visible(not owned)
+	entitlement_changed.emit(owned)
 
 
 func _on_product_info_updated(product_id: String, title: String, price: String, currency_icon_url: String) -> void:

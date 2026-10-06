@@ -74,7 +74,7 @@ Never change these without explicit user approval:
 2. Primary input is a single tap / one finger.
 3. Base level duration is 60 seconds.
 4. Player starts with 3 lives represented by hammers in the HUD.
-5. Empty-box hit does not remove a life.
+5. Every three consecutive misses (empty-box strikes or escaped Normal/Fast/Golden) remove one life; any clown hit resets the streak, and each penalty starts a new streak.
 6. A scoring target hit gives exactly +10 score.
 7. Combo does not multiply score in MVP.
 8. Normal, Fast and Golden are scoring targets.

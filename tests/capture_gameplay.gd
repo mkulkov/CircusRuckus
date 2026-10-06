@@ -99,10 +99,14 @@ func _run() -> void:
 		gameplay.game_controller.finish_level(capture_mode == "result_win")
 		await create_timer(0.65, true).timeout
 		if capture_mode == "result_remove_ads":
-			var remove_ads := gameplay.session_overlay.get_node("RemoveAdsButton") as Button
+			var settings_scene := load("res://scenes/ui/SettingsOverlay.tscn") as PackedScene
+			var settings := settings_scene.instantiate()
+			root.add_child(settings)
+			settings.open({})
+			var remove_ads := settings.get_node("RemoveAdsButton") as Button
 			remove_ads.visible = true
-			gameplay.session_overlay._layout_buttons()
-			gameplay.session_overlay.queue_redraw()
+			remove_ads.text = tr("REMOVE_ADS")
+			settings.queue_redraw()
 	else:
 		await create_timer(0.15, true).timeout
 	await process_frame

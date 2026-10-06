@@ -142,7 +142,7 @@ func _run_spawn_cycle(lifecycle_id: int, visible_time: float) -> void:
 
 	state = SlotState.ACTIVE
 	_play_idle_wobble(lifecycle_id)
-	await get_tree().create_timer(visible_time).timeout
+	await get_tree().create_timer(visible_time, false).timeout
 	if lifecycle_id == _lifecycle_id and state == SlotState.ACTIVE:
 		await _escape_character()
 
@@ -260,7 +260,7 @@ func _begin_cooldown() -> void:
 	clown.scale = Vector2.ONE
 	clown.rotation = 0.0
 	queue_redraw()
-	await get_tree().create_timer(0.20).timeout
+	await get_tree().create_timer(0.20, false).timeout
 	state = SlotState.IDLE
 
 

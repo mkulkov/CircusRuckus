@@ -21,6 +21,7 @@ enum GameState {
 }
 
 const MAX_LIVES := 3
+const MISSES_PER_LIFE := 3
 const COUNTDOWN_LABELS := ["3", "2", "1", "COUNTDOWN_GO"]
 const DRUNK_CONFUSION_STRIKES := 1
 
@@ -31,6 +32,7 @@ var score: int = 0
 var combo_count: int = 0
 var max_combo: int = 0
 var lives: int = MAX_LIVES
+var consecutive_misses: int = 0
 var remaining_time: float = 60.0
 var target_score: int = 250
 var required_max_combo: int = 0
@@ -74,6 +76,7 @@ func start_level(
 	combo_count = 0
 	max_combo = 0
 	lives = MAX_LIVES
+	consecutive_misses = 0
 	remaining_time = duration
 	target_score = required_score
 	required_max_combo = required_combo
@@ -129,6 +132,7 @@ func finish_level(won: bool) -> void:
 func resolve_scoring_hit() -> void:
 	if state != GameState.RUNNING:
 		return
+	consecutive_misses = 0
 	score += 10
 	combo_count += 1
 	max_combo = maxi(max_combo, combo_count)
@@ -139,6 +143,7 @@ func resolve_scoring_hit() -> void:
 func resolve_character_hit(character_type: StringName) -> void:
 	if state != GameState.RUNNING:
 		return
+	consecutive_misses = 0
 	match character_type:
 		&"normal", &"fast", &"golden":
 			resolve_scoring_hit()
@@ -196,13 +201,22 @@ func objectives_met() -> bool:
 
 
 func resolve_empty_hit() -> void:
-	if state == GameState.RUNNING:
-		reset_combo()
+	_register_miss()
 
 
 func resolve_scoring_miss() -> void:
-	if state == GameState.RUNNING:
-		reset_combo()
+	_register_miss()
+
+
+func _register_miss() -> void:
+	if state != GameState.RUNNING:
+		return
+	reset_combo()
+	consecutive_misses += 1
+	if consecutive_misses >= MISSES_PER_LIFE:
+		consecutive_misses = 0
+		feedback_requested.emit(tr("THREE_MISSES_LIFE"))
+		lose_life()
 
 
 func lose_life() -> void:

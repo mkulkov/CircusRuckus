@@ -4,6 +4,7 @@ signal level_selected(level_id: int)
 signal back_requested
 
 const DESIGN_SIZE := Vector2(1080.0, 1920.0)
+const LOCK_ICON := preload("res://assets/ui/level_lock.svg")
 const BACKGROUND := preload("res://assets/generated/circus_background.png")
 
 var _save_data: Dictionary = {}
@@ -60,8 +61,23 @@ func _refresh_states() -> void:
 	for level_id in range(1, 10):
 		var button := _level_buttons[level_id - 1]
 		button.disabled = level_id > highest
+		var lock_icon := button.get_node_or_null("LockIcon") as TextureRect
+		if lock_icon == null:
+			lock_icon = TextureRect.new()
+			lock_icon.name = "LockIcon"
+			lock_icon.texture = LOCK_ICON
+			lock_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			lock_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			lock_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			button.add_child(lock_icon)
+			lock_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			lock_icon.anchor_left = 0.34
+			lock_icon.anchor_right = 0.66
+			lock_icon.anchor_top = 0.52
+			lock_icon.anchor_bottom = 0.87
+		lock_icon.visible = button.disabled
 		if button.disabled:
-			button.text = "%d\n%s" % [level_id, tr("LOCKED")]
+			button.text = "%d\n" % level_id
 		elif completed.has(level_id):
 			button.text = "%d\n%d" % [level_id, int(best_scores.get(str(level_id), 0))]
 		else:

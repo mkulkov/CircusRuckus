@@ -31,12 +31,14 @@ func _ready() -> void:
 	_music_player = AudioStreamPlayer.new()
 	_music_player.name = "MusicPlayer"
 	_music_player.bus = &"Music"
+	_music_player.process_mode = Node.PROCESS_MODE_PAUSABLE
 	_music_player.finished.connect(_on_music_finished)
 	add_child(_music_player)
 	for index in range(6):
 		var player := AudioStreamPlayer.new()
 		player.name = "SFXPlayer%d" % index
 		player.bus = &"SFX"
+		player.process_mode = Node.PROCESS_MODE_PAUSABLE
 		add_child(player)
 		_sfx_players.append(player)
 	_build_sfx()
@@ -122,6 +124,8 @@ func play_event(event_name: StringName) -> void:
 	if haptics_enabled and OS.has_feature("mobile"):
 		if event_name == &"correct_hit":
 			Input.vibrate_handheld(20, 0.28)
+		elif event_name in [&"empty_hit", &"clown_miss"]:
+			Input.vibrate_handheld(65, 0.65)
 		elif event_name in [&"bomb", &"life_lost"]:
 			Input.vibrate_handheld(55, 0.58)
 

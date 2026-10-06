@@ -91,7 +91,7 @@ func _attempt_spawn() -> void:
 
 
 func _spawn_second_after_delay() -> void:
-	await get_tree().create_timer(_rng.randf_range(0.08, 0.20)).timeout
+	await get_tree().create_timer(_rng.randf_range(0.08, 0.20), false).timeout
 	if _running and _board.get_occupied_slot_count() < _config.max_active_characters:
 		_spawn_one()
 

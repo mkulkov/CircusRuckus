@@ -35,11 +35,13 @@ func _run() -> void:
 	_test_localization()
 	await _test_audio_manager()
 	_test_scoring_and_combo()
+	_test_consecutive_misses()
 	_test_all_character_rules()
 	_test_save_data_defaults()
 	_test_save_data_record_completed_level()
 	_test_save_settings_round_trip()
 	await _test_monetization_demo_contract()
+	await _test_vk_ad_gate()
 	_test_yandex_platform_contract()
 	_test_save_data_invalid_fallback()
 	_test_save_data_semantic_validation()
@@ -66,6 +68,56 @@ func _run() -> void:
 	quit(1)
 
 
+func _test_vk_ad_gate() -> void:
+	var service := MonetizationService.new()
+	var adapter := MonetizationAdapter.new()
+	adapter.platform_name = "vk"
+	service._adapter = adapter
+	var state := {"continued": 0, "blocked": 0}
+	service.ads_unavailable.connect(func() -> void: state.blocked += 1)
+	service.show_level_start_ad(1, func() -> void: state.continued += 1)
+	service._on_ad_availability_checked(false)
+	_expect_true(state.blocked == 1 and state.continued == 0, "VK unavailable ads block level entry")
+	service.continue_pending_level_after_purchase()
+	_expect_true(state.continued == 0, "Unconfirmed purchase cannot pass ad gate")
+	service._on_interstitial_finished(false)
+	_expect_true(state.continued == 0, "Failed VK ad does not start level")
+	service.ads_removed = true
+	service.continue_pending_level_after_purchase()
+	service.continue_pending_level_after_purchase()
+	_expect_true(state.continued == 1, "Owned purchase resumes pending level exactly once")
+	service.show_level_start_ad(2, func() -> void: state.continued += 1)
+	_expect_true(state.continued == 2, "Owned purchase bypasses VK ad check")
+	service.ads_removed = false
+	service.show_level_start_ad(2, func() -> void: state.continued += 1)
+	service.cancel_pending_level()
+	service._on_ad_availability_checked(true)
+	_expect_true(state.continued == 2, "Exiting cancels pending level and ignores late response")
+	adapter.platform_name = "ok"
+	service.show_level_start_ad(1, func() -> void: state.continued += 1)
+	service._on_ad_availability_checked(false)
+	_expect_true(state.continued == 3 and state.blocked == 2, "OK unavailable ads allow first level without purchasing")
+	service.show_level_start_ad(2, func() -> void: state.continued += 1)
+	service._on_ad_availability_checked(false)
+	_expect_true(state.continued == 4, "OK unavailable ads allow later levels")
+	service.show_level_start_ad(2, func() -> void: state.continued += 1)
+	service._on_interstitial_finished(false)
+	service._on_interstitial_finished(false)
+	_expect_true(state.continued == 5, "Failed OK interstitial continues exactly once")
+	service.free()
+	var dialog := load("res://scripts/ui/ads_unavailable_dialog.gd").new() as CanvasLayer
+	root.add_child(dialog)
+	await process_frame
+	dialog.set_purchase_available(true, "299 голосов VK")
+	_expect_true(not dialog._purchase.disabled and dialog._purchase.text.contains("299"), "Ad gate shows server price and available purchase")
+	dialog.set_pending()
+	_expect_true(dialog._purchase.disabled and dialog._exit.disabled, "Ad gate prevents duplicate purchase and exit while payment pending")
+	dialog.show_purchase_failure()
+	dialog.set_purchase_available(true, "299 голосов VK")
+	_expect_true(not dialog._exit.disabled and not dialog._purchase.disabled, "Cancelled purchase permits retry or exit")
+	dialog.queue_free()
+	await process_frame
+
 func _test_monetization_demo_contract() -> void:
 	var save_manager_script := load("res://scripts/save/save_manager.gd") as GDScript
 	var save_manager := save_manager_script.new() as Node
@@ -83,6 +135,11 @@ func _test_monetization_demo_contract() -> void:
 	await process_frame
 	_expect_true(service.is_ads_removed(), "Demo purchase grants the durable ads_removed entitlement")
 	_expect_true(bool(save_manager.load_data()["ads_removed"]), "Demo purchase persists ads_removed to disk")
+	service._on_entitlement_restored(false)
+	_expect_true(not service.is_ads_removed(), "Authoritative restore revokes a refunded or different-account entitlement")
+	_expect_true(not bool(save_manager.load_data()["ads_removed"]), "Revoked entitlement is persisted")
+	service._on_entitlement_restored(true)
+	_expect_true(service.is_ads_removed(), "Authoritative restore grants a confirmed account entitlement")
 	service._on_product_info_updated("remove_ads", "Отключить рекламу", "49 ₽", "")
 	_expect_equal(service.get_remove_ads_price(), "49 ₽", "Remove Ads offer keeps the SDK-provided portal price")
 	_expect_equal(service.get_remove_ads_title(), "Отключить рекламу", "Remove Ads offer keeps the SDK-provided product title")
@@ -90,11 +147,22 @@ func _test_monetization_demo_contract() -> void:
 	var offer_menu := offer_menu_scene.instantiate()
 	root.add_child(offer_menu)
 	service.ads_removed = false
-	offer_menu.configure({}, service)
-	var offer_button := offer_menu.get_node("RemoveAdsButton") as Button
-	_expect_true(offer_button.visible, "Remove Ads offer appears after SDK catalog metadata loads")
-	_expect_equal(offer_button.text, "Отключить рекламу\n49 ₽", "Remove Ads label combines SDK product title and formatted price")
-	_expect_true(offer_button.icon == null, "Remove Ads button does not display a currency icon")
+	offer_menu.configure({})
+	_expect_true(offer_menu.get_node_or_null("RemoveAdsButton") == null, "Main Menu keeps Remove Ads inside Settings")
+	var settings := (load("res://scenes/ui/SettingsOverlay.tscn") as PackedScene).instantiate()
+	root.add_child(settings)
+	settings.configure_monetization(service)
+	var offer_button := settings.get_node("RemoveAdsButton") as Button
+	_expect_true(offer_button.visible, "Remove Ads offer appears in Settings after SDK catalog metadata loads")
+	_expect_equal(offer_button.text, "Отключить рекламу\n49 ₽", "Settings offer combines SDK product title and formatted price")
+	_expect_true(offer_button.icon == null, "Settings offer does not display a currency icon")
+	var offer_overlay: Control = (load("res://scripts/ui/session_overlay.gd") as GDScript).new()
+	root.add_child(offer_overlay)
+	_expect_true(offer_overlay.get_node_or_null("RemoveAdsButton") == null, "Pause and results keep Remove Ads inside Settings")
+	service._on_purchase_finished(true, "remove_ads")
+	_expect_true(not offer_button.visible, "Successful purchase immediately hides the Settings offer")
+	offer_overlay.queue_free()
+	settings.queue_free()
 	offer_menu.queue_free()
 
 	var restarted_service := MonetizationService.new()
@@ -119,6 +187,9 @@ func _test_monetization_demo_contract() -> void:
 	_expect_true(load("res://assets/video/demo_ad_4s.ogv") != null, "Four-second demo advertising video loads")
 	presenter.queue_free()
 	save_manager.delete_save_for_tests()
+	service.free()
+	restarted_service.free()
+	save_manager.free()
 
 
 func _test_yandex_platform_contract() -> void:
@@ -162,6 +233,7 @@ func _test_yandex_platform_contract() -> void:
 	_expect_equal(merged["completed_levels"], [1, 2], "Cloud merge preserves completed levels from both stores")
 	_expect_equal(merged["best_scores"]["1"], 300, "Cloud merge preserves the best score")
 	_expect_true(not bool(merged["music_enabled"]), "Cloud settings win when a valid cloud save exists")
+	manager.free()
 
 
 func _test_project_configuration() -> void:
@@ -310,17 +382,8 @@ func _test_menu_and_navigation_flow() -> void:
 	_expect_true(menu.get_node_or_null("LevelsButton") != null, "Main Menu exposes Levels action")
 	_expect_true(menu.get_node_or_null("SettingsButton") != null, "Main Menu exposes Settings action")
 	_expect_true(menu.get_node_or_null("AboutButton") != null, "Main Menu exposes About action")
-	var remove_ads := menu.get_node_or_null("RemoveAdsButton") as Button
 	_expect_true(menu.get_node_or_null("MenuPanel") == null, "Main Menu has no enclosing action frame")
-	_expect_true(remove_ads != null and not remove_ads.visible, "Main Menu hides Remove Ads without a purchase service")
-	if remove_ads != null:
-		var about_button := menu.get_node_or_null("AboutButton") as Button
-		remove_ads.visible = true
-		menu._layout()
-		_expect_true(
-			about_button != null and about_button.get_global_rect().end.y < remove_ads.get_global_rect().position.y,
-			"Main Menu separates About and Remove Ads actions"
-		)
+	_expect_true(menu.get_node_or_null("RemoveAdsButton") == null, "Main Menu puts Remove Ads offer in Settings")
 	menu.queue_free()
 	await process_frame
 	var levels := level_select_scene.instantiate()
@@ -514,6 +577,7 @@ func _test_spawn_rate_accelerates_over_round() -> void:
 	_expect_equal(opening_interval, 1.0, "Spawn interval starts at the configured value")
 	_expect_equal(final_interval, 0.65, "Spawn interval reaches the configured end-round multiplier")
 	_expect_true(final_interval < opening_interval, "Spawn frequency increases by the end of the round")
+	director.free()
 
 
 func _test_all_character_rules() -> void:
@@ -988,8 +1052,20 @@ func _test_core_interaction_scene() -> void:
 	await create_timer(0.40).timeout
 	_expect_true(gameplay.board_controller.get_slot(4).is_idle(), "Hit Normal hides and returns its slot to IDLE")
 	_expect_true(gameplay.debug_spawn_normal(4, 3.4), "Cleared slot can repeat the spawn cycle")
+	await create_timer(0.9).timeout
 	gameplay.game_controller.pause_level()
 	_expect_true(gameplay.session_overlay.is_showing_pause(), "Pause popup is shown")
+	var paused_slot = gameplay.board_controller.get_slot(4)
+	var paused_state: int = paused_slot.state
+	var paused_position: Vector2 = paused_slot.clown.position
+	var paused_time: float = gameplay.game_controller.remaining_time
+	await create_timer(3.6, true).timeout
+	_expect_equal(paused_slot.state, paused_state, "Clown visibility timer stops throughout pause")
+	_expect_true(paused_slot.clown.position.is_equal_approx(paused_position), "Clown animation stops during pause")
+	_expect_true(is_equal_approx(gameplay.game_controller.remaining_time, paused_time), "Gameplay timer stops during pause")
+	_expect_true(not gameplay.audio_manager._music_player.can_process(), "Music player stops processing during pause")
+	for player in gameplay.audio_manager._sfx_players:
+		_expect_true(not player.can_process(), "SFX player stops processing during pause")
 	gameplay.game_controller.resume_level()
 	_expect_true(not gameplay.session_overlay.is_showing_pause(), "Pause popup closes on resume")
 	gameplay.game_controller.finish_level(true)
@@ -1170,3 +1246,37 @@ func _expect_true(condition: bool, message: String) -> void:
 
 	_failures += 1
 	push_error("FAIL: " + message)
+
+
+func _test_consecutive_misses() -> void:
+	var controller = load("res://scripts/gameplay/game_controller.gd").new()
+	root.add_child(controller)
+	controller.start_level(60.0, 250, false)
+	controller.resolve_empty_hit()
+	controller.resolve_character_escape(&"normal")
+	_expect_equal(controller.lives, 3, "First two mixed misses preserve lives")
+	controller.resolve_character_escape(&"golden")
+	_expect_equal(controller.lives, 2, "Third mixed miss removes exactly one life")
+	_expect_equal(controller.consecutive_misses, 0, "Life penalty clears miss streak")
+	controller.resolve_empty_hit()
+	controller.resolve_empty_hit()
+	controller.resolve_scoring_hit()
+	_expect_equal(controller.consecutive_misses, 0, "Scoring hit clears miss streak")
+	controller.resolve_empty_hit()
+	controller.resolve_character_hit(&"clock")
+	_expect_equal(controller.consecutive_misses, 0, "Bonus hit clears miss streak")
+	controller.resolve_empty_hit()
+	controller.resolve_character_escape(&"bomb")
+	controller.resolve_character_escape(&"clock")
+	_expect_equal(controller.consecutive_misses, 1, "Ignored non-scoring clowns do not alter streak")
+	controller.pause_level()
+	controller.resolve_empty_hit()
+	_expect_equal(controller.consecutive_misses, 1, "Paused misses do not count")
+	controller.resume_level()
+	controller.start_level(60.0, 250, false)
+	_expect_equal(controller.consecutive_misses, 0, "Restart clears miss streak")
+	for index in range(9):
+		controller.resolve_empty_hit()
+	_expect_equal(controller.lives, 0, "Nine consecutive misses exhaust three lives")
+	_expect_equal(controller.state, controller.GameState.FINISHED_LOSS, "Third life penalty ends level in loss")
+	controller.queue_free()

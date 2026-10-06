@@ -48,7 +48,7 @@ const ysdk = {
 const context = vm.createContext({
 	window: {},
 	YaGames: { init: async () => { initCount += 1; return ysdk; } },
-	console,
+	console, URLSearchParams,
 	JSON,
 	Promise,
 });

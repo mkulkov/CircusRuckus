@@ -42,6 +42,7 @@ locale/fallback="ru"
 
 [monetization]
 
+vk/payments_base_url="https://vk-games-shop.mkulkov.ru/games/circusrucus"
 rustore/yandex_appmetrica_api_key=""
 rustore/yandex_banner_id="R-M-20038632-1"
 rustore/yandex_interstitial_id="R-M-20038632-2"

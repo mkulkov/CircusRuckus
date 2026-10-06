@@ -65,8 +65,6 @@ func _ready() -> void:
 	session_overlay.menu_requested.connect(func() -> void: menu_requested.emit())
 	session_overlay.next_requested.connect(func() -> void: next_level_requested.emit(mini(level_number + 1, 9)))
 	session_overlay.settings_requested.connect(func() -> void: settings_requested.emit())
-	session_overlay.configure_monetization(monetization_service)
-
 	_load_level(level_number)
 	_configure_level()
 	_start_level()
@@ -135,14 +133,11 @@ func _on_hammer_impact(slot_index: int) -> void:
 		var missed_bonus := &"clock" in active_types or &"glutton" in active_types
 		game_controller.resolve_empty_hit()
 		if missed_bonus:
-			var impact_global: Vector2 = board_controller.get_global_transform() * board_controller.get_slot_impact_position(slot_index)
 			for active_type in active_types:
 				if active_type in [&"clock", &"glutton"]:
 					_suppressed_bonus_escapes[active_type] = int(_suppressed_bonus_escapes.get(active_type, 0)) + 1
-			_impact_fx_layer.show_score(impact_global, tr("BONUS_MISSED"), true)
-		else:
-			var impact_global: Vector2 = board_controller.get_global_transform() * board_controller.get_slot_impact_position(slot_index)
-			_impact_fx_layer.show_score(impact_global, tr("MISS"))
+		var impact_global: Vector2 = board_controller.get_global_transform() * board_controller.get_slot_impact_position(slot_index)
+		_impact_fx_layer.show_score(impact_global, tr("MISS"))
 		audio_manager.play_event(&"empty_hit")
 
 
@@ -180,10 +175,10 @@ func _on_character_escaped(slot_index: int, character_type: StringName) -> void:
 	if character_type in [&"normal", &"fast", &"golden"]:
 		audio_manager.play_event(&"clown_miss")
 	elif character_type == &"clock" and not escape_feedback_suppressed:
-		_impact_fx_layer.show_score(impact_global, tr("CLOCK_ESCAPED"), true)
+		_impact_fx_layer.show_score(impact_global, tr("MISS"))
 	elif character_type == &"glutton":
 		if not escape_feedback_suppressed:
-			_impact_fx_layer.show_score(impact_global, tr("GLUTTON_ESCAPED"), true)
+			_impact_fx_layer.show_score(impact_global, tr("MISS"))
 		audio_manager.play_event(&"glutton_escape")
 
 

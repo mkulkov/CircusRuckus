@@ -1,5 +1,96 @@
 # PROGRESS.md — Цирковой переполох
 
+## 2026-10-06 — Предложение отключить рекламу перенесено в настройки
+
+- Кнопка «Отключить рекламу» теперь находится в меню настроек, отображается только при доступном товаре и скрывается после покупки.
+- Кнопки из главного меню и игровых экранов убраны; сценарии покупки из самого окна блокировки рекламы сохранены.
+- Godot 4.7.2: `tests/run_tests.gd`, `tests/smoke_test.gd` и headless editor/import завершились с кодом 0.
+
+## 2026-10-02 — VK Hosting origins use app-bound templates
+
+- The payment API now accepts an empty explicit origin list while still allowing only the generated stage/prod VK Hosting host patterns for the configured app ID. Exact HTTPS origins remain required for external hosts.
+- Regression coverage confirms rotating hashes for VK Hosting app IDs are accepted and unrelated origins remain denied; all 13 payment server tests pass.
+
+## 2026-10-01 — Подготовлен VK Mini Apps Prod deploy package
+
+- Создан `builds/vk-mini-apps-prod-deploy-2026-10-01/` на основе текущего Release Web-экспорта; ZIP и `deploy-release` содержат одинаковые 9 runtime-файлов.
+- Hosting config приложения `54768735` направлен только в Prod (`update_prod=true`, `update_dev=false`). `Deploy-VK.ps1 -Target Prod -ValidateOnly`, состав ZIP и 10 SHA-256 записей прошли.
+- Пакет подготовлен локально; production hosting не обновлялся, публикация и runtime в VK не проверялись.
+
+## 2026-10-01 — Новый локальный VK Mini Apps release candidate
+
+- Пересобран Godot 4.7.2 preset `Web - VK Mini Apps` из текущего дерева в `builds/vk-mini-apps-release-2026-10-01/`; архив содержит ровно 9 runtime-файлов.
+- Импорт, полный Godot runner, smoke, VK/OK/Yandex bridge tests, 12 платёжных серверных тестов и `Deploy-VK.ps1 -ValidateOnly` прошли. SHA-256 ZIP: `D333FDDCDB3C9EE1E389F4109893D36254D8AA54E493A7D87ACF6C0D9D4E0D8C`.
+- Hosting config подготовлен только для Dev. Кабинет/размещение VK заблокированы политикой браузера; экспорт остаётся локальным, загрузка и production-публикация не выполнялись.
+
+## 2026-10-01 — Совместимость запроса товара VK
+
+- Реальный журнал VPS содержит get_item с корректной подписью при отображении get_item_test в кабинете. В test-режиме обработчик ранее возвращал Invalid order, поскольку принимал только get_item_test.
+- Информация о товаре теперь выдаётся для обоих подписанных get_item/get_item_test: этот запрос не создаёт заказ и не выдаёт право. Режим order_status_change остаётся строгим; тест подтверждает, что обычная оплата не выдаёт тестовое право.
+- Локальные 6 тестов прошли; изменение применено с резервной копией на VPS, синтаксис и серверные/multi-game тесты прошли. Перезапущен только vk-shop@circusrucus.service. Успешная покупка VK остаётся непроверенной.
+
+## 2026-10-01 — Диагностика платёжного callback VK
+
+- На VPS и в локальном сервере добавлен безопасный журнал callback: распознанный тип, проверка подписи/идентичности приложения, наличие обязательных полей и код ответа. Ключ, подписи, полные запросы и данные пользователей не логируются.
+- Сохранена резервная копия VPS; синтаксис, локальные 6 тестов и 6 серверных/multi-game тестов прошли. Перезапущен только vk-shop@circusrucus.service.
+- Синтетический подписанный get_item_test через публичный HTTPS URL вернул HTTP 200 и товар remove_ads по текущей цене 14 голосов; запись заказа не создавалась, в базе 0 заказов. Это не проверка запроса со стороны VK.
+- Браузерное подключение возвращает timeout. Для определения причины ошибки окна нужна новая попытка пользователя и сопоставление с безопасным журналом.
+
+## 2026-10-01 — CORS для новых сборок VK
+
+- Платёжный сервер дополнительно разрешает HTTPS origins stage-app<VK_APP_ID>-<12 hex>.pages.vk-apps.ru и prod-app<VK_APP_ID>-<12 hex>.pages-ac.vk-apps.ru. Список точных адресов сохранён, подпись запуска VK обязательна. Чужие app_id, порты, userinfo и домены с посторонними суффиксами не разрешаются.
+- Добавлены позитивные/негативные тесты шаблонов; локальные 6 серверных тестов прошли. На VPS сохранена резервная копия, синтаксис и 6 серверных/multi-game тестов прошли; перезапущен только vk-shop@circusrucus.service. Внешняя проверка: свой Dev/Prod origin — HTTP 204 с конкретным CORS origin, чужой app_id — HTTP 403.
+
+## 2026-10-01 — Проверка рекламы и окно покупки перед уровнями VK
+
+- По запросу пользователя перед входом в каждый уровень VK проверяется доступность interstitial, если право remove_ads не подтверждено. Первый уровень остаётся без показа interstitial, но проверка доступности выполняется.
+- Недоступность, ошибка или timeout останавливают переход и открывают окно: возможный блокировщик/сбой сети, «Отключить рекламу» с серверной ценой и «Выход» в главное меню. Подтверждённая покупка продолжает ожидающий уровень один раз; отмена/ошибка позволяет повторить покупку или выйти.
+- VK banner/native ads учитывают data.result === true; result:false больше не считается показом. Проверка SDK ограничена 10 секундами, показ interstitial — 30 секундами, поздний ответ не вызывает повторное завершение.
+- Проверка распространяется на VK; остальные платформы сохраняют прежний сценарий. Добавлены проверки JS результатов и Godot переходов/прав/состояний кнопок.
+- Локальные JS-тесты, полный Godot runner, import и smoke проверены; отдельная Dev-сборка: builds/vk-dev-ad-gate-2026-10-01. Размещение новой сборки и реальная успешная покупка VK не выполнялись.
+- 2026-10-01 Web export повторно собран из актуального дерева. Dev-папка и ZIP синхронизированы, 9 runtime SHA-256 сверены; Deploy-VK.ps1 -ValidateOnly прошёл. ZIP SHA-256: `3DD61960F32A856F2E0D7A7D612E85E081B95EDB82DF2B7CED07506D6A7420D6`. На VK не загружено.
+## 2026-10-01 — Dev-сборка VK с новым сервером покупок
+
+- В project.godot задан payments_base_url=https://vk-games-shop.mkulkov.ru/games/circusrucus; клиент использует каталог и права этого сервера. Callback: /games/circusrucus/vk/payments/callback.
+- Собран реальный preset Web - VK Mini Apps (без monetization_demo) в builds/vk-dev-payments-2026-10-01/deploy-release. ZIP содержит 9 runtime-файлов; hosting config обновляет только Dev, рядом README и SHA-256.
+- Импорт, полный Godot tests/run_tests.gd, smoke_test.gd, VK/Yandex JS bridge и 5 серверных тестов прошли. Экспорт и Deploy-VK.ps1 -ValidateOnly прошли; адрес сервера в PCK и платёжный bridge в HTML проверены.
+- Загрузка в VK не выполнялась. Реальная покупка/отмена в окне VK остаются непроверенными до размещения нового Dev runtime. При предыдущей проверке кабинета API callback был 5.131; для проверки возвратов нужна 5.132.
+
+## 2026-10-01 — Инструкция размещения платёжного сервера на VPS
+
+- Добавлен `tools/vk-payments/DEPLOY_VPS.md` для Debian 13 и домена `vk-games-shop.mkulkov.ru`: отдельный Node.js, systemd, nginx HTTP/HTTPS, Let's Encrypt через Debian Certbot, certbot.timer/dry-run, база/backup, настройка VK и готовое задание для SSH-развёртывания.
+- Обязательное условие пользователя: сохранить работающий VPN и остальные службы. Инструкция требует проверки портов/сетевых правил до изменений, сохранения существующего proxy и согласования конфликтов 80/443 без остановки VPN; не предусматривает сброс firewall, смену маршрутизации или перезагрузку VPS.
+- VPS ещё не обследован; Debian 13 указан пользователем, SSH-доступ, фактическая конфигурация ОС, DNS, сертификат и внешняя доступность служб не проверены. Изменена только документация.
+
+## 2026-10-01 — Реализована покупка отключения рекламы через VK
+
+- Товар `remove_ads`, цена 299 голосов VK по указанию пользователя. Клиент вызывает `VKWebAppShowOrderBox`, приостанавливает игру/звук на время окна и выдаёт право только после подтверждения серверного реестра; отмена, ошибка, timeout и неподтверждённая оплата не выдают право.
+- Добавлен сервер `tools/vk-payments` на Node.js 24+ без сторонних зависимостей: каталог, проверка MD5-подписи уведомлений и HMAC-SHA256 параметров запуска, постоянная SQLite-база, идемпотентная обработка заказов/возвратов, раздельные test/live права. Восстановление по VK-аккаунту работает при запуске и возврате фокуса; устаревший ответ восстановления не отменяет новую покупку.
+- Добавлен `monetization/vk/payments_base_url`. Пока HTTPS-сервер не размещён и адрес не настроен, кнопка покупки скрыта. Инструкции размещения и настройки callback/тестировщиков: `tools/vk-payments/README.md`.
+- Проверены официальные инструкции VK по товарам, get_item, order_status_change, подписи и тестовым платежам 2026-10-01. Тестовые платежи не требуют наличия 299 голосов и не списывают баланс.
+- Проверки: 5 серверных тестов, `tests/vk_bridge_test.mjs`, регрессия `tests/yandex_bridge_test.mjs`, импорт Godot, полный `tests/run_tests.gd` и smoke — PASS; без ошибок/утечек. Релиз VK пересобран локально; пакет `builds/vk-mini-apps-payments-delivery-2026-10-01/`.
+- Сервер ещё не размещён, защищённый ключ не получен, кабинет не изменён, сборка не загружена. Настоящая тестовая покупка VK и восстановление на другом устройстве пока не проверены. Ошибки рекламы из предыдущего аудита остаются вне этой доработки.
+
+## 2026-10-01 — Устранены утечки тестов и пересобран релиз VK Mini Apps
+
+- В трёх сценариях `tests/run_tests.gd` добавлено освобождение пяти созданных узлов: двух MonetizationService, двух SaveManager и SpawnDirector. Они удерживали связанные адаптеры, скрипты и LevelConfig после завершения тестов.
+- Полный verbose-запуск тестов: PASS, exit 0, без ObjectDB leaks и ресурсов, остающихся в использовании. Импорт проекта и smoke-проверка: exit 0, без диагностик.
+- Релизный preset `Web - VK Mini Apps` пересобран в Godot 4.7.2 в `builds/vk/`; подготовлен пакет `builds/vk-mini-apps-delivery-2026-10-01/` с ZIP из девяти runtime-файлов, hosting config, README и SHA-256 manifest.
+- Загрузка на VK не выполнялась. Обнаруженные при аудите ошибки обработки результата рекламы и отсутствие ограничения ожидания не входили в эту доработку; реальная реклама и платежи в размещённой игре остаются непроверенными.
+
+## 2026-09-29 — Добавлен локальный запуск деплоя VK Mini Apps
+
+- Добавлен `tools/vk-deploy/Deploy-VK.ps1`: проверка набора девяти runtime-файлов, вывод SHA-256, выбор dev/prod/both с отдельным текстовым подтверждением и запуск закреплённого VK CLI.
+- Скрипт восстанавливает исходный `vk-hosting-config.json` после выполнения CLI; `-ValidateOnly` проверяет пакет без установки зависимостей и загрузки.
+- Реальную загрузку не запускали: токен и авторизация остаются на стороне пользователя при запуске скрипта.
+
+## 2026-09-29 — VK Mini Apps Web-сборка обновлена локально
+
+- Пересобран preset `Web - VK Mini Apps` в Godot 4.7.2 для приложения `54768735`; подготовлен пакет `builds/vk-mini-apps-delivery-2026-09-29/`.
+- ZIP `clown-smash-vk-mini-apps-web-2026-09-29.zip` содержит девять Web runtime-файлов в корне; рядом сохранены hosting config, README и SHA-256 manifest.
+- Импорт проекта, полный `tests/run_tests.gd`, `tests/smoke_test.gd` и Web export прошли. При завершении полного тестового раннера остаются предупреждения Godot об утёкших ObjectDB instances и используемых ресурсах.
+- Обновление кабинета/хостинга VK не выполнено: браузерная политика заблокировала доступ к странице кабинета. Загрузка, размещённый runtime, production ads и модерация не проверены.
+
 ## 2026-09-29 — Очистка Android-экспорта
 
 - Во всех Android-пресетах исключены тесты, инструменты, промо, проверки и исходные заготовки графики; обычные игровые APK и релизный AAB не включают демо-видео. В QA-профиле монетизации демо-ролик сохранён как функциональный ресурс.
@@ -688,3 +779,131 @@ Planned:
 ### 2026-09-29 — RuStore startup splash screenshot
 
 - Captured and visually inspected the rendered Russian `StartupSplash` scene at `promotion/rustore_2026-09-29/startup_splash_ru_1080x1920.png` (1080×1920, 9:16, 2,789,022 bytes / 2.66 MiB). It fits RuStore phone screenshot dimensions and size limits as a supplemental image; it does not replace gameplay screenshots.
+
+### 2026-10-01 — Locked-level icons, complete pause, miss haptics
+
+- Replaced the locked-level text with `assets/ui/level_lock.svg`, retaining level numbers and disabled buttons. Rendered and visually reviewed `verification/level_select_lock_2026-10-01.png` at 540x960.
+- Made clown visibility/cooldown and delayed double-spawn timers pause with SceneTree. Music and all SFX players explicitly use PAUSABLE processing so playback pauses and resumes with the game.
+- Added a 65 ms haptic pulse for empty-box strikes and escaped scoring clowns; respects the existing haptics setting and mobile feature gate. Android export profiles already include VIBRATE permission.
+- Import check, full `tests/run_tests.gd`, smoke test, and diff whitespace check passed. Added a regression covering a pause longer than the clown visibility window, frozen animation/time, and paused music/SFX players.
+- ADB device inventory was empty. Updated APK/device playback and physical vibration validation remain unverified; no install or store action performed.
+
+### 2026-10-01 — VK purchase immediately refreshes offer buttons
+
+- Reproduced the stale menu offer with a regression: entitlement_changed supplied one argument to a zero-argument refresh handler, causing a Godot runtime error.
+- Main menu and session overlay refresh handlers now accept the entitlement signal argument while retaining no-argument catalog/manual refresh calls. Verified purchase immediately hides both buttons without page reload.
+- Full Godot tests, scene smoke test, VK bridge tests, release Web export and Dev package ValidateOnly passed. Prepared builds/vk-dev-purchase-refresh-2026-10-01/clown-smash-vk-dev-purchase-refresh-2026-10-01.zip; hosting upload and live verification of this build remain pending.
+
+
+### 2026-10-01 — Odnoklassniki adaptation and server progress
+
+- Detect `vk_client=ok` through VK Bridge initialization; keep the existing VK ad gate,
+  but OK levels remain playable when inventory is unavailable or the ad fails.
+- Added VK/OK backend progress under `/vk/payments/progress`, authenticated using signed
+  launch parameters. SQLite keys include social network, app ID and user ID; achievements
+  merge monotonically across devices. Local save filenames use the same identity.
+  Unknown-owner old VK saves are not silently migrated. Offline progress is retained
+  locally and synchronization retries after 30 seconds of active processing.
+- Added VK Bridge hide/restore and document visibility handling for platform pause/audio,
+  and a visible Web startup error message instead of a silent blank screen.
+- Implemented OK checkout from the two user-supplied official VK PDF specifications:
+  POST get_item on the VK callback chooses the configured price in OKs; signed GET
+  callbacks.payment on `/ok/payments/callback/test` or `/live` commits an idempotent
+  order before returning JSON true. Errors include Invocation-error. Separate OK ledger
+  isolates VK and test/live rights; invalid signatures, prices, products and users fail.
+  The client polls server entitlement after OK mobile SDK completion and never grants
+  from the SDK response alone. A legacy VK-only server cannot supply OK entitlements.
+- Added local refund recording after confirmed official refundUserPayment success;
+  no unauthenticated administrative HTTP endpoint. Automatic refund reconciliation and
+  subscriptions are outside this change. Refund tombstones survive late payment retries.
+- OK checkout remains hidden until OK_APP_ID, OK_APP_PUBLIC_KEY, OK_PAYMENT_MODE and
+  an explicit OK_REMOVE_ADS_PRICE are configured. Shared/separate callback secret remains
+  server-only. README and .env.example describe both callback URLs and proxy routing.
+- Verification: Godot import, full run_tests.gd, smoke_test.gd, VK/OK/Yandex bridge
+  contracts and 12 server tests passed. Prepared Web/server artifacts under
+  builds/ok-adaptation-2026-10-01. Existing uncommitted changes were preserved.
+- Not performed: VPS deployment, real OK account launch/signature verification, sandbox
+  payment, two physical device synchronization, current cabinet setup and moderation.
+  Therefore local implementation/build evidence does not prove readiness for publication.
+
+
+### 2026-10-01 — VPS server updated for OK / VK progress
+
+- Connected to the user-authorized VPS 77.221.132.70:2313 and inspected the actual
+  multi-game deployment. Updated only the active vk-shop@circusrucus instance code
+  under /opt/vk-shop and the existing game's nginx virtual host.
+- Backed up prior server/test source, nginx configuration, protected environment and
+  the stopped instance's SQLite to /root/clown-ok-update-pBLjQAQU/backup.
+- Ran 13 tests on the VPS: 12 updated server tests plus its existing multi-game
+  isolation regression. All passed before service replacement.
+- Preserved /etc/vk-shop/games/circusrucus.env and the configured test payment mode.
+  Added only /games/circusrucus/ok/payments/ proxy routing; access_log is disabled
+  for payment callback routes. nginx -t passed before reload.
+- Restarted vk-shop@circusrucus.service and verified signed read-only HTTPS requests
+  to catalog, entitlements and progress return HTTP 200. New OK callback path routes
+  correctly and rejects unconfigured payments with Invocation-error 1001.
+- Database /var/lib/vk-shop-circusrucus/payments.sqlite retained its existing one VK
+  order; progress/ok_orders tables are present and SQLite quick_check returned ok.
+  Source SHA-256 matches local server.mjs exactly:
+  f3752979177f19ffe19786043a87c4b47a0faf2041b3490fe48e3ee4a542e53b.
+- nginx, Docker and amnezia-peer-stats-web remain active. VPN client connectivity was
+  not tested; no VPN, firewall, SSH or unrelated service configuration was changed.
+- Still pending: OK app ID/public key/price/payment mode settings, OK cabinet callback
+  URLs, sandbox and real device tests. Web game hosting was not updated by this VPS
+  server deployment. No credentials were written to repository files or release ZIPs.
+
+### 2026-10-01 — payment runtime configuration
+- Backed up the protected VPS environment to /root/clown-payment-config-20261001-223146.
+- Set VK_PAYMENT_MODE=live and OK_APP_ID=512005436129; restarted only vk-shop@circusrucus.
+- Signed HTTPS catalog checks returned 200: VK mode live, price 14 votes; OK empty catalog because public key, price and payment mode remain unconfigured.
+- VK cabinet test setting was not changed. OK purchase activation awaits public key and pricing decision; dynamic conversion has not been implemented.
+
+### 2026-10-01 — OK price
+- User-selected remove_ads price set to 80 OKs on VPS (OK_REMOVE_ADS_PRICE=80).
+- Protected backup: /root/clown-ok-price-20261001-224309; instance restarted and active; configuration readback confirms price 80 and app ID 512005436129.
+- OK checkout remains disabled: public key and payment mode are not configured.
+
+### 2026-10-01 — OK live activation
+- Configured user-provided OK public key and OK_PAYMENT_MODE=live on VPS; protected backup /root/clown-ok-live-20261001-224518.
+- Instance active. Initial immediate request during restart returned 502; repeat after startup passed.
+- Signed external HTTPS catalog and entitlements both return 200 for VK and OK; OK catalogue is remove_ads, 80 OKs, live. VK remains 14 votes, live.
+- OK callback verification currently uses shared VK secret fallback. A real platform payment and cabinet callback configuration remain unverified; if OK secret differs it must be configured privately on VPS.
+
+### 2026-10-02 — Live VK/OK monetization QA and OK launch authentication fix
+
+- Chrome/Playwright confirmed the hosted Dev version was stale: no OK bridge and the pre-fix menu signal handler. Uploaded approved current Dev build to stage-app54768735-32aeda9fd118.pages.vk-apps.ru (hosting version 1790969982).
+- Reproduced OK HTTP 401 with genuine signed launch parameters. Fixed validation of the VK/OK app ID pair, millisecond OK timestamp and OK entitlement lookup using signed vk_ok_user_id. Preserved signature checking, expiry and legacy launch format. Added a regression; 14 server tests pass. Compared VPS source before patch, created backup, deployed and restarted only circusrucus payment service. Real OK iframe now returns HTTP 200 verified entitlement/catalog.
+- VK sandbox purchase completed with explicit user approval: signed order_status_change_test accepted, immediate menu-button disappearance and banner removal captured in verification/vk-after-purchase-2026-10-02.png. Reloaded game restores verified test entitlement. SDK instrumentation after purchase recorded only HideBannerAd; level-start ad bypass is covered by automated tests. Test order retained separately from live.
+- Real banner visible in VK before purchase. Provider interstitial creatives visibly rendered in both VK and OK (verification/vk-fullscreen-ad-2026-10-02.png and ok-ads-2026-10-02.png). Completion callbacks timed out while Chrome reported hidden; do not claim completed viewing. OK banner returned SDK No ads.
+- OK offer returns 80 OKs, checkout opens and cancellation leaves rights unowned. Successful OK payment/restoration remain unverified: platform checkout did not identify sandbox, balance is zero; developer settings require account two-factor authentication. No real payment or account-security change performed.
+- OK still launched the previous hosting URL after Dev upload; tested the new build temporarily inside the genuine OK container using unchanged signed launch parameters. Automatic OK hosting propagation remains to be verified.
+- Restored VK/OK payment modes to live and OK cabinet callback to /ok/payments/callback/live; other VPS services were not changed. Full Godot tests, import, smoke, VK/OK bridge tests, release Web export and Dev package validation passed.
+
+### 2026-10-03 — Background music loudness alignment
+
+- Processed both runtime background OGG files with two-pass loudness normalization at -18 LUFS / -1.5 dBTP, limiting loudness range to 5 LU, followed by measured gain correction. Final integrated loudness: fon1 -17.95 LUFS, fon2 -18.00 LUFS; true peaks -4.26 / -8.01 dBTP.
+- Reduced fon1 loudness swings (original LRA 11.1 LU); retained existing resource paths and music selection behavior. SFX unchanged.
+- Original OGG backups and before/after measurements: `verification/music_loudness_2026-10-03/`.
+- FFmpeg decoded and measured both complete outputs; Godot import passed. No physical-device listening verification performed.
+
+### 2026-10-03 — Life penalty for three consecutive misses
+
+- Empty-box strikes and escaped Normal/Fast/Golden share a consecutive-miss counter. Every third miss removes exactly one life and clears the counter; zero lives ends the level.
+- Any clown hit clears the streak. Ignored non-scoring clowns leave it unchanged; paused input does not count; new/restarted levels clear it. Existing scoring, combo and Bomb rules retained.
+- Added localized third-miss feedback and synchronized SPEC.md / AGENTS.md with the user-authorized rule change.
+- Godot import, full tests/run_tests.gd (new mixed-miss, reset, pause, restart, and nine-miss loss coverage), and smoke_test.gd passed.
+
+### 2026-10-03 — Ordinary feedback for bonus misses
+
+- Empty strikes while Clock/Glutton are visible show the standard MISS feedback; removed the special BONUS_MISSED presentation. Bonus escape feedback also uses MISS instead of bonus-specific captions.
+- Retained duplicate escape-label suppression and existing life/miss-counter rules.
+- Verification: Godot import, full tests/run_tests.gd (including duplicate bonus escape-label suppression), and diff whitespace checks passed.
+
+### 2026-10-03 — Signed Android 1.0.3 release and phone installation
+
+- Advanced Android - RuStore Release Ads to versionCode 4 / versionName 1.0.3. Built signed `builds/clown-smash-rustore-1.0.3-release.aab` and matching release APK using the existing signing key; no credentials persisted in the project.
+- AAB JAR verification and APK apksigner verification passed, with the existing AB:D1:5F:11... certificate. APK identity is ru.mkulkov.circusruckus, ARM64, minSdk 24 / targetSdk 36.
+- Installed the release APK successfully on Infinix X663 (07589251CL001154). Cold launch succeeded, process remained alive, version and VIBRATE grant confirmed; sampled logcat had no FATAL EXCEPTION, SCRIPT ERROR, Parse Error or SIGSEGV. Device screenshot captured under verification/android_release_2026-10-03.
+- Full project tests passed. Both Godot exports reported DONE and created valid signed artifacts but lingered afterward; their specific export processes were terminated after completion. Restored the AAB export format after temporary APK export.
+- Deleted three older/generated Android packages within this project after successful installation; only the new release AAB/APK remain. Deletion manifest and new SHA-256 hashes are in verification/android_release_2026-10-03.
+- No store upload performed. This verifies packaging/install/startup, not physical haptic feel, complete gameplay/audio QA, or live purchases/ads.

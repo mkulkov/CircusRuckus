@@ -6,8 +6,6 @@ signal menu_requested
 signal next_requested
 signal settings_requested
 
-var _monetization: MonetizationService
-
 enum OverlayMode {
 	NONE,
 	COUNTDOWN,
@@ -41,7 +39,6 @@ var _retry_button: Button
 var _menu_button: Button
 var _next_button: Button
 var _settings_button: Button
-var _remove_ads_button: Button
 var _countdown_is_final := false
 var _countdown_burst_time := 0.0
 var _confetti: Array[Dictionary] = []
@@ -72,40 +69,9 @@ func _ready() -> void:
 	_settings_button.name = "OverlaySettingsButton"
 	_settings_button.pressed.connect(func() -> void: settings_requested.emit())
 	add_child(_settings_button)
-	_remove_ads_button = _create_button(tr("REMOVE_ADS"))
-	_remove_ads_button.name = "RemoveAdsButton"
-	_remove_ads_button.pressed.connect(func() -> void:
-		if _monetization != null:
-			_monetization.purchase_remove_ads()
-	)
-	add_child(_remove_ads_button)
 	resized.connect(_layout_buttons)
 	_layout_buttons()
 	hide_overlay()
-
-
-func configure_monetization(monetization_service: MonetizationService) -> void:
-	_monetization = monetization_service
-	if _monetization == null:
-		refresh_monetization()
-		return
-	if not _monetization.entitlement_changed.is_connected(refresh_monetization):
-		_monetization.entitlement_changed.connect(refresh_monetization)
-	if not _monetization.product_info_changed.is_connected(refresh_monetization):
-		_monetization.product_info_changed.connect(refresh_monetization)
-	refresh_monetization()
-
-
-func refresh_monetization() -> void:
-	if _remove_ads_button != null:
-		_remove_ads_button.visible = _monetization != null and _monetization.is_remove_ads_offer_available() and not _monetization.is_ads_removed()
-		if _monetization != null:
-			var price := _monetization.get_remove_ads_price()
-			var title := _monetization.get_remove_ads_title()
-			_remove_ads_button.text = tr("REMOVE_ADS") if title.is_empty() or price.is_empty() else "%s\n%s" % [title, price]
-			_remove_ads_button.icon = null
-		_layout_buttons()
-		queue_redraw()
 
 
 func show_countdown(text: String) -> void:
@@ -120,7 +86,6 @@ func show_countdown(text: String) -> void:
 	_menu_button.visible = false
 	_next_button.visible = false
 	_settings_button.visible = false
-	_remove_ads_button.visible = false
 	_layout_buttons()
 	queue_redraw()
 
@@ -134,7 +99,6 @@ func show_pause() -> void:
 	_menu_button.visible = true
 	_next_button.visible = false
 	_settings_button.visible = true
-	refresh_monetization()
 	queue_redraw()
 
 
@@ -152,7 +116,6 @@ func show_result(won: bool, score: int, max_combo: int, target_score: int, save_
 	_menu_button.visible = true
 	_next_button.visible = won and can_advance and not save_error
 	_settings_button.visible = false
-	refresh_monetization()
 	queue_redraw()
 
 
@@ -164,7 +127,6 @@ func hide_overlay() -> void:
 	_menu_button.visible = false
 	_next_button.visible = false
 	_settings_button.visible = false
-	_remove_ads_button.visible = false
 	queue_redraw()
 
 
@@ -304,7 +266,7 @@ func _draw_modal_panel() -> void:
 
 func _get_modal_panel_rect() -> Rect2:
 	var action_count := 0
-	for button in [_resume_button, _retry_button, _next_button, _menu_button, _settings_button, _remove_ads_button]:
+	for button in [_resume_button, _retry_button, _next_button, _menu_button, _settings_button]:
 		if button != null and button.visible:
 			action_count += 1
 	var action_start_y := 940.0 if _mode == OverlayMode.RESULT else 800.0
@@ -331,7 +293,7 @@ func _layout_buttons() -> void:
 	var scale_factor := size.x / DESIGN_SIZE.x
 	var action_start_y := 940.0 if _mode == OverlayMode.RESULT else 800.0
 	var visible_buttons: Array[Button] = []
-	for button in [_resume_button, _retry_button, _next_button, _menu_button, _settings_button, _remove_ads_button]:
+	for button in [_resume_button, _retry_button, _next_button, _menu_button, _settings_button]:
 		if button.visible:
 			visible_buttons.append(button)
 	for index in range(visible_buttons.size()):
@@ -344,4 +306,3 @@ func _layout_buttons() -> void:
 	_next_button.add_theme_font_size_override("font_size", maxi(20, roundi(31.0 * scale_factor)))
 	_menu_button.add_theme_font_size_override("font_size", maxi(20, roundi(31.0 * scale_factor)))
 	_settings_button.add_theme_font_size_override("font_size", maxi(20, roundi(31.0 * scale_factor)))
-	_remove_ads_button.add_theme_font_size_override("font_size", maxi(20, roundi(28.0 * scale_factor)))

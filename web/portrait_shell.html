@@ -56,6 +56,17 @@
 	<script>
 		// A small host API keeps platform SDK calls outside the Godot game code.
 		window.ClownSmashPlatform = (() => {
+			const launch = new URLSearchParams(window.location?.search || '');
+			const isOk = launch.get('vk_client') === 'ok';
+			let cloudSaveQueue = Promise.resolve();
+			let hostHidden = false;
+			let documentHidden = false;
+			const updateVisibility = () => {
+				const hidden = hostHidden || documentHidden;
+				if (hidden === platformPaused) return;
+				platformPaused = hidden;
+				finish(hidden ? pauseCallback : resumeCallback);
+			};
 			let ysdk = null;
 			let platform = '';
 			let initializationPromise = null;
@@ -68,8 +79,43 @@
 			let lifecycleSubscribed = false;
 			let pauseCallback = null;
 			let resumeCallback = null;
+			let vkPaymentPending = false;
+			let vkPaymentsBase = '';
+			let vkEntitlementCallback = null;
+			let vkEntitlementSubscribed = false;
+			let vkEntitlementVersion = 0;
+			const refreshVkEntitlement = () => {
+				if (platform !== 'vk' || vkPaymentPending || !vkEntitlementCallback) return;
+				const version = vkEntitlementVersion;
+				vkPaymentRequest('entitlements').then(result => {
+					if (!vkPaymentPending && version === vkEntitlementVersion) finishJson(vkEntitlementCallback, result);
+				}).catch(() => {});
+			};
+			const showVkOrder = () => new Promise((resolve, reject) => {
+				const timeout = setTimeout(() => reject(new Error('VK payment timed out')), 180000);
+				Promise.resolve().then(() => vkBridge.send('VKWebAppShowOrderBox', { type: 'item', item: 'remove_ads' }))
+					.then(resolve, reject).finally(() => clearTimeout(timeout));
+			});
 			const finish = (callback, value) => { if (typeof callback === 'function') callback(value); };
 			const finishJson = (callback, value) => finish(callback, JSON.stringify(value));
+			const vkPaymentRequest = async (path, progress) => {
+				if (!vkPaymentsBase) throw new Error('VK payments server is not configured');
+				const controller = new AbortController();
+				const timeout = setTimeout(() => controller.abort(), 15000);
+				try {
+					const response = await fetch(vkPaymentsBase + '/vk/payments/' + path, {
+						method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+						body: window.location.search.slice(1) + (progress === undefined ? '' : '&progress=' + encodeURIComponent(progress)), signal: controller.signal,
+						credentials: 'omit', cache: 'no-store', redirect: 'error'
+					});
+					if (!response.ok) throw new Error('VK payments server request failed');
+					const result = await response.json();
+						if (isOk && ['catalog', 'entitlements'].includes(path) && result.site !== 'ok') {
+							throw new Error('Server does not support OK payments');
+						}
+						return result;
+				} finally { clearTimeout(timeout); }
+			};
 			const attachYandexLifecycle = () => {
 				if (!ysdk || lifecycleSubscribed) return;
 				lifecycleSubscribed = true;
@@ -103,7 +149,18 @@
 				if (typeof vkBridge !== 'undefined') {
 					platform = 'vk';
 					initializationPromise = vkBridge.send('VKWebAppInit')
-						.then(() => ({ platform, locale: '' }))
+						.then(() => {
+							if (typeof vkBridge.subscribe === 'function') vkBridge.subscribe(event => {
+								const type = event.detail?.type;
+								if (type === 'VKWebAppViewHide' || type === 'VKWebAppViewRestore') {
+									hostHidden = type === 'VKWebAppViewHide'; updateVisibility();
+								}
+							});
+							document.addEventListener('visibilitychange', () => {
+								documentHidden = document.visibilityState === 'hidden'; updateVisibility();
+							});
+							return { platform: isOk ? 'ok' : platform, locale: '' };
+						})
 						.catch(() => ({ platform: '', locale: '' }));
 					return initializationPromise;
 				}
@@ -128,6 +185,27 @@
 				});
 			};
 			return {
+				getSaveProfile() {
+					const app = launch.get('vk_app_id'), user = launch.get('vk_user_id');
+					if (!/^[1-9]\d*$/.test(app || '') || !/^[1-9]\d*$/.test(user || '')) return '';
+					return (isOk ? 'ok' : 'vk') + '_' + app + '_' + user;
+				},
+				configureVkPayments(baseUrl) {
+					try {
+						const url = new URL(baseUrl);
+						vkPaymentsBase = url.protocol === 'https:' && !url.username && !url.password && !url.search && !url.hash
+							? url.href.replace(/\/$/, '') : '';
+					} catch { vkPaymentsBase = ''; }
+				},
+				subscribeVkEntitlements(callback) {
+					vkEntitlementCallback = callback;
+					if (vkEntitlementSubscribed) return;
+					vkEntitlementSubscribed = true;
+					window.addEventListener('focus', refreshVkEntitlement);
+					document.addEventListener('visibilitychange', () => {
+						if (document.visibilityState === 'visible') refreshVkEntitlement();
+					});
+				},
 				initialize(callback) {
 					ensureInitialized().then((result) => { sendGameReady(); finishJson(callback, result); });
 				},
@@ -181,12 +259,27 @@
 							.catch((error) => { console.error('[ClownSmash][Yandex] Sticky banner request failed', error); finishJson(callback, { visible: false, reason: 'SDK_ERROR' }); });
 					} else if (platform === 'vk' && typeof vkBridge !== 'undefined') {
 						vkBridge.send(visible ? 'VKWebAppShowBannerAd' : 'VKWebAppHideBannerAd', visible ? { banner_location: 'bottom' } : {})
-							.then(() => finishJson(callback, { visible: !!visible, reason: '' }))
+							.then((data) => finishJson(callback, { visible: !!visible && data.result === true, reason: visible && data.result !== true ? 'NO_ADS' : '' }))
 							.catch(() => finishJson(callback, { visible: false, reason: 'SDK_ERROR' }));
 					} else {
 						finishJson(callback, { visible: false, reason: 'UNSUPPORTED_PLATFORM' });
 					}
 					});
+				},
+				checkAdAvailability(callback) {
+					let completed = false;
+					const complete = (available) => {
+						if (completed) return;
+						completed = true;
+						clearTimeout(timeout);
+						finishJson(callback, { available });
+					};
+					const timeout = setTimeout(() => complete(false), 10000);
+					ensureInitialized().then(() => {
+						if (platform !== 'vk') { complete(true); return; }
+						return vkBridge.send('VKWebAppCheckNativeAds', { ad_format: 'interstitial' })
+							.then(data => complete(data.result === true));
+					}).catch(() => complete(false));
 				},
 				showInterstitial(openedCallback, callback) {
 					if (platform === 'yandex' && ysdk) {
@@ -204,39 +297,67 @@
 						return;
 					}
 					if (platform === 'vk' && typeof vkBridge !== 'undefined') {
+						let completed = false;
+						const complete = (success) => {
+							if (completed) return;
+							completed = true;
+							clearTimeout(timeout);
+							finishJson(callback, { success });
+						};
+						const timeout = setTimeout(() => complete(false), 30000);
 						finish(openedCallback);
 						vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'interstitial' })
-							.then(() => finishJson(callback, { success: true })).catch(() => finishJson(callback, { success: false }));
+							.then(data => complete(data.result === true)).catch(() => complete(false));
 						return;
 					}
 					finishJson(callback, { success: false });
 				},
 				loadCloudSave(callback) {
 					ensureInitialized().then(() => {
+						if (platform === 'vk') {
+							return vkPaymentRequest('progress').then(result => { finishJson(callback, result); return null; });
+						}
 						if (platform !== 'yandex') { finishJson(callback, { success: false }); return null; }
 						return getPlayer();
 					}).then((player) => player ? player.getData(['clown_smash_save']) : null)
 						.then((data) => { if (data) finishJson(callback, { success: true, data: data.clown_smash_save || null }); })
-						.catch((error) => { console.warn('[ClownSmash][Yandex] Cloud load unavailable', error); finishJson(callback, { success: false }); });
+						.catch((error) => { console.warn('[ClownSmash][Cloud] Load unavailable', error); finishJson(callback, { success: false }); });
 				},
 				saveCloudSave(encodedData, callback) {
 					let data;
 					try { data = JSON.parse(encodedData); }
 					catch (error) { finishJson(callback, { success: false }); return; }
 					ensureInitialized().then(() => {
+						if (platform === 'vk') {
+							cloudSaveQueue = cloudSaveQueue.catch(() => {}).then(() => vkPaymentRequest('progress', encodedData));
+							return cloudSaveQueue.then(result => { finishJson(callback, result); return null; });
+						}
 						if (platform !== 'yandex') { finishJson(callback, { success: false }); return null; }
 						return getPlayer();
 					}).then((player) => player ? player.setData({ clown_smash_save: data }, true) : null)
 						.then((result) => { if (result !== null) finishJson(callback, { success: true }); })
-						.catch((error) => { console.warn('[ClownSmash][Yandex] Cloud save unavailable', error); finishJson(callback, { success: false }); });
+						.catch((error) => { console.warn('[ClownSmash][Cloud] Save unavailable', error); finishJson(callback, { success: false }); });
 				},
 				restorePurchases(callback) {
+					if (platform === 'vk') {
+						const version = vkEntitlementVersion;
+						vkPaymentRequest('entitlements').then((result) => {
+							if (!vkPaymentPending && version === vkEntitlementVersion) finishJson(callback, result);
+						})
+							.catch(() => finishJson(callback, {}));
+						return;
+					}
 					if (platform !== 'yandex' || !ysdk || !ysdk.payments) { finishJson(callback, {}); return; }
 					ysdk.payments.getPurchases().then((items) => finishJson(callback, {
 						remove_ads: items.some((item) => item.productID === 'remove_ads' || item.product_id === 'remove_ads')
 					})).catch(() => finishJson(callback, {}));
 				},
 				loadProductCatalog(callback) {
+					if (platform === 'vk') {
+						vkPaymentRequest('catalog').then((result) => finishJson(callback, result))
+							.catch(() => finishJson(callback, {}));
+						return;
+					}
 					if (platform !== 'yandex' || !ysdk || !ysdk.payments) { finishJson(callback, {}); return; }
 					ysdk.payments.getCatalog().then((items) => {
 						const product = items.find((item) => item.id === 'remove_ads');
@@ -256,13 +377,46 @@
 					});
 				},
 				purchase(productId, callback) {
+					if (platform === 'vk' && productId === 'remove_ads' && vkPaymentsBase) {
+						if (vkPaymentPending) { finishJson(callback, { success: false, product_id: productId }); return; }
+						vkPaymentPending = true;
+						vkEntitlementVersion += 1;
+						(async () => {
+							let success = false;
+							let paused = false;
+							try {
+								// The server ledger is authoritative; never charge again for an owned product.
+								let entitlement = await vkPaymentRequest('entitlements');
+								if (entitlement.verified !== true) throw new Error('Entitlement verification unavailable');
+								if (entitlement.remove_ads !== true) {
+									paused = true;
+									finish(pauseCallback);
+									const order = await showVkOrder();
+									if (order.status && order.status !== 'success') throw new Error('Payment was not successful');
+									entitlement = await vkPaymentRequest('entitlements');
+									// OK mobile may return before the payment callback is committed.
+									for (let attempt = 0; isOk && entitlement.remove_ads !== true && attempt < 10; attempt++) {
+										await new Promise(resolve => setTimeout(resolve, 1500));
+										entitlement = await vkPaymentRequest('entitlements');
+									}
+								}
+								success = entitlement.verified === true && entitlement.remove_ads === true;
+							} catch { success = false; }
+							finally {
+								vkPaymentPending = false;
+								if (paused) finish(resumeCallback);
+								finishJson(callback, { success, product_id: productId });
+							}
+						})();
+						return;
+					}
 					if (platform === 'yandex' && ysdk && ysdk.payments) {
 						ysdk.payments.purchase({ id: productId }).then((purchase) => {
 							finishJson(callback, { success: true, product_id: purchase.productID || productId });
 						}).catch(() => finishJson(callback, { success: false, product_id: productId }));
 						return;
 					}
-					// VK payment needs a configured product/community contract; never guess IDs.
+					// Unsupported or unconfigured payment providers cannot grant purchases.
 					finishJson(callback, { success: false, product_id: productId });
 				}
 			};
@@ -285,7 +439,10 @@
 			document.getElementById('status').remove();
 		}).catch((error) => {
 			console.error(error);
-			document.getElementById('status').remove();
+			const status = document.getElementById('status');
+			status.textContent = 'Не удалось загрузить игру. Обновите страницу или используйте современный браузер. / Unable to load the game. Reload or update your browser.';
+			status.style.padding = '24px';
+			status.style.color = 'white';
 		});
 	</script>
 </body>

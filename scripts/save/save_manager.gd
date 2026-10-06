@@ -22,6 +22,21 @@ var _cloud_load_callback: JavaScriptObject
 var _cloud_save_callback: JavaScriptObject
 var _cloud_ready := false
 var _cloud_initialization_pending := false
+var _cloud_retry_seconds := 0.0
+var _cloud_save_retry_needed := false
+
+
+func _process(delta: float) -> void:
+	if not OS.has_feature("web") or not OS.has_feature("vk_mini_apps") or OS.has_feature("monetization_demo"):
+		return
+	_cloud_retry_seconds += delta
+	if _cloud_retry_seconds < 30.0:
+		return
+	_cloud_retry_seconds = 0.0
+	if not _cloud_ready and not _cloud_initialization_pending:
+		initialize_cloud()
+	elif _cloud_save_retry_needed:
+		_push_cloud_data(load_data())
 
 
 func set_save_path_for_tests(save_path: String) -> void:
@@ -66,8 +81,20 @@ func load_data() -> Dictionary:
 	return _normalize_save_data(data)
 
 
+func configure_web_profile() -> void:
+	if not OS.has_feature("web") or not OS.has_feature("vk_mini_apps") or OS.has_feature("monetization_demo"):
+		return
+	var bridge: Variant = JavaScriptBridge.get_interface("ClownSmashPlatform")
+	if bridge == null:
+		return
+	bridge.configureVkPayments(str(ProjectSettings.get_setting("monetization/vk/payments_base_url", "")))
+	var profile := str(bridge.getSaveProfile())
+	if not profile.is_empty() and profile.is_valid_filename():
+		_save_path = "user://clown_smash_%s.json" % profile
+
+
 func initialize_cloud() -> void:
-	if not OS.has_feature("web") or _cloud_initialization_pending or _cloud_ready:
+	if not OS.has_feature("web") or OS.has_feature("monetization_demo") or _cloud_initialization_pending or _cloud_ready:
 		return
 	_cloud_bridge = JavaScriptBridge.get_interface("ClownSmashPlatform")
 	if _cloud_bridge == null:
@@ -80,7 +107,7 @@ func initialize_cloud() -> void:
 		await get_tree().process_frame
 	if _cloud_initialization_pending:
 		_cloud_initialization_pending = false
-		push_warning("Yandex cloud initialization timed out; local progress remains available.")
+		push_warning("Platform cloud initialization timed out; local progress remains available.")
 
 
 func _on_cloud_loaded(arguments: Array) -> void:
@@ -131,14 +158,16 @@ func _write_local_data(data: Dictionary) -> Error:
 func _push_cloud_data(data: Dictionary) -> void:
 	if not _cloud_ready or _cloud_bridge == null:
 		return
-	_cloud_save_callback = JavaScriptBridge.create_callback(_on_cloud_saved)
+	if _cloud_save_callback == null:
+		_cloud_save_callback = JavaScriptBridge.create_callback(_on_cloud_saved)
 	_cloud_bridge.saveCloudSave(JSON.stringify(data), _cloud_save_callback)
 
 
 func _on_cloud_saved(arguments: Array) -> void:
 	var response := _decode_callback_dictionary(arguments)
+	_cloud_save_retry_needed = not bool(response.get("success", false))
 	if not bool(response.get("success", false)):
-		push_warning("Yandex cloud save failed; local progress remains available.")
+		push_warning("Platform cloud save failed; local progress remains available.")
 
 
 func _decode_callback_dictionary(arguments: Array) -> Dictionary:

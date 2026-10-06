@@ -4,6 +4,7 @@ const MAIN_MENU_SCENE := preload("res://scenes/ui/MainMenu.tscn")
 const LEVEL_SELECT_SCENE := preload("res://scenes/ui/LevelSelect.tscn")
 const GAMEPLAY_SCENE := preload("res://scenes/gameplay/Gameplay.tscn")
 const STARTUP_SPLASH_SCENE := preload("res://scenes/ui/StartupSplash.tscn")
+const ADS_UNAVAILABLE_DIALOG := preload("res://scripts/ui/ads_unavailable_dialog.gd")
 
 @onready var save_manager: Node = $SaveManager
 @onready var settings_overlay: Control = $SettingsOverlay
@@ -12,12 +13,18 @@ const STARTUP_SPLASH_SCENE := preload("res://scenes/ui/StartupSplash.tscn")
 @onready var monetization_service: MonetizationService = $MonetizationService
 
 var _current_screen: Node
+var _ads_dialog: CanvasLayer
 
 
 func _ready() -> void:
+	save_manager.configure_web_profile()
 	monetization_service.configure(save_manager, audio_manager)
+	settings_overlay.configure_monetization(monetization_service)
 	monetization_service.platform_pause_requested.connect(_on_platform_pause_requested)
 	monetization_service.platform_resume_requested.connect(_on_platform_resume_requested)
+	monetization_service.ads_unavailable.connect(_show_ads_unavailable)
+	monetization_service.purchase_failed.connect(_on_ad_gate_purchase_failed)
+	monetization_service.product_info_changed.connect(_refresh_ad_gate)
 	await localization_manager.initialize()
 	await save_manager.initialize_cloud()
 	settings_overlay.settings_changed.connect(_on_settings_changed)
@@ -40,12 +47,14 @@ func _show_startup_splash() -> void:
 
 
 func show_main_menu(play_sound: bool = true) -> void:
+	monetization_service.cancel_pending_level()
+	_close_ad_gate()
 	get_tree().paused = false
 	monetization_service.set_gameplay_active(false)
 	if play_sound:
 		audio_manager.play_event(&"ui_button")
 	_replace_screen(MAIN_MENU_SCENE.instantiate())
-	_current_screen.configure(save_manager.load_data(), monetization_service)
+	_current_screen.configure(save_manager.load_data())
 	_current_screen.play_requested.connect(start_level)
 	_current_screen.levels_requested.connect(show_level_select)
 	_current_screen.settings_requested.connect(_show_settings)
@@ -83,8 +92,37 @@ func _open_level(level_id: int) -> void:
 
 
 func _on_ads_entitlement_changed(_ads_removed: bool) -> void:
-	if _current_screen != null and _current_screen.has_method("refresh_monetization"):
-		_current_screen.refresh_monetization()
+	if _ads_removed and is_instance_valid(_ads_dialog):
+		_close_ad_gate()
+		monetization_service.continue_pending_level_after_purchase()
+
+func _show_ads_unavailable() -> void:
+	if is_instance_valid(_ads_dialog):
+		return
+	get_tree().paused = true
+	_ads_dialog = ADS_UNAVAILABLE_DIALOG.new()
+	add_child(_ads_dialog)
+	_ads_dialog.exit_requested.connect(func() -> void: show_main_menu())
+	_ads_dialog.purchase_requested.connect(func() -> void:
+		_ads_dialog.set_pending()
+		monetization_service.purchase_remove_ads()
+	)
+	_refresh_ad_gate()
+
+func _refresh_ad_gate() -> void:
+	if is_instance_valid(_ads_dialog):
+		_ads_dialog.set_purchase_available(monetization_service.are_purchases_enabled() and monetization_service.is_remove_ads_offer_available(), monetization_service.get_remove_ads_price())
+
+func _on_ad_gate_purchase_failed() -> void:
+	if is_instance_valid(_ads_dialog):
+		_ads_dialog.show_purchase_failure()
+		_refresh_ad_gate()
+
+func _close_ad_gate() -> void:
+	if is_instance_valid(_ads_dialog):
+		_ads_dialog.queue_free()
+	_ads_dialog = null
+	get_tree().paused = false
 
 
 func _replace_screen(screen: Node) -> void:

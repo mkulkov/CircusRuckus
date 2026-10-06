@@ -137,16 +137,16 @@ At 0 lives, immediate loss.
 
 A life is lost when:
 
-1. player misses a BoxSlot with no active clown;
+1. player accumulates three consecutive misses: empty-box strikes or escaped Normal/Fast/Golden;
 2. player hits Bomb;
 
 ### 7.2. No life loss for
 
-- missed Normal/Fast/Golden;
+- first or second consecutive miss on Normal/Fast/Golden;
 - ignored Bomb;
 - missed Clock;
 - missed Glutton;
-- empty-box strike while Clock or Glutton is active;
+- first or second consecutive empty-box strike, including while Clock or Glutton is active;
 - direct hit on Drunk;
 - combo reset.
 
@@ -313,6 +313,7 @@ Hit:
 
 ```text
 lives -= 1
+consecutive_misses = 0
 combo = 0
 ```
 
@@ -462,11 +463,12 @@ Gameplay tap on empty BoxSlot:
 ```text
 combo = 0
 score unchanged
-lives -= 1
+consecutive_misses += 1
+at 3 misses: lives -= 1; consecutive_misses = 0
 ```
 
 Feedback: small box shake, wooden thunk, tiny dust.
-Show life-loss feedback.
+Show life-loss feedback on the third consecutive miss. Any clown hit resets the miss streak. Ignored Bomb/Clock/Glutton and UI taps do not change it; pausing preserves it and starting a level clears it.
 
 ---
 
@@ -1314,7 +1316,7 @@ A headless test runner is required.
 - Fast → 3
 - Golden → 4
 - Clock at combo 7 → 0
-- empty tap at combo 4 → 0, lives decrease by 1
+- empty tap at combo 4 → 0; life decreases only on the third consecutive miss
 - escaped scoring target at combo >0 → 0
 
 ### Bomb
@@ -1455,7 +1457,7 @@ Touch, safe areas, aspect ratios, FPS, lifecycle, Android debug export.
 - all seven clown types work;
 - +10 scoring rules correct;
 - combo rules correct;
-- empty hit removes one life;
+- three consecutive empty hits or scoring-clown escapes remove one life;
 - Bomb hit removes life;
 - Glutton escape removes life;
 - Glutton hit restores lost life;

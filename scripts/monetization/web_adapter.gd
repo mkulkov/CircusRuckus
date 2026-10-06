@@ -10,6 +10,7 @@ var _banner_callback: JavaScriptObject
 var _interstitial_opened_callback: JavaScriptObject
 var _interstitial_finished_callback: JavaScriptObject
 var _purchase_callback: JavaScriptObject
+var _availability_callback: JavaScriptObject
 var _platform_pause_callback: JavaScriptObject
 var _platform_resume_callback: JavaScriptObject
 
@@ -22,6 +23,7 @@ func initialize() -> void:
 	if _bridge == null:
 		initialized.emit(false)
 		return
+	_bridge.configureVkPayments(str(ProjectSettings.get_setting("monetization/vk/payments_base_url", "")))
 	_initialize_callback = JavaScriptBridge.create_callback(_on_initialized)
 	_bridge.initialize(_initialize_callback)
 
@@ -41,6 +43,8 @@ func restore_entitlements() -> void:
 	if _bridge == null:
 		return
 	_restore_callback = JavaScriptBridge.create_callback(_on_restored)
+	if _platform in ["vk", "ok"]:
+		_bridge.subscribeVkEntitlements(_restore_callback)
 	_bridge.restorePurchases(_restore_callback)
 
 
@@ -76,6 +80,10 @@ func set_gameplay_active(active: bool) -> void:
 
 func _on_restored(arguments: Array) -> void:
 	var data := _decode_callback_dictionary(arguments)
+	if _platform in ["vk", "ok"]:
+		if bool(data.get("verified", false)):
+			entitlement_restored.emit(bool(data.get("remove_ads", false)))
+		return
 	if bool(data.get("remove_ads", false)):
 		purchase_finished.emit(true, "remove_ads")
 
@@ -94,6 +102,16 @@ func show_interstitial() -> void:
 	_interstitial_opened_callback = JavaScriptBridge.create_callback(_on_interstitial_opened)
 	_interstitial_finished_callback = JavaScriptBridge.create_callback(_on_interstitial_finished)
 	_bridge.showInterstitial(_interstitial_opened_callback, _interstitial_finished_callback)
+
+func check_ad_availability() -> void:
+	if _bridge == null:
+		ad_availability_checked.emit(false)
+		return
+	_availability_callback = JavaScriptBridge.create_callback(_on_ad_availability)
+	_bridge.checkAdAvailability(_availability_callback)
+
+func _on_ad_availability(arguments: Array) -> void:
+	ad_availability_checked.emit(bool(_decode_callback_dictionary(arguments).get("available", false)))
 
 
 func _on_interstitial_opened(_arguments: Array) -> void:

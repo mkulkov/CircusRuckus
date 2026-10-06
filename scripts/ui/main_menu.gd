@@ -4,8 +4,6 @@ signal play_requested(level_id: int)
 signal levels_requested
 signal settings_requested
 
-var _monetization: MonetizationService
-
 const DESIGN_SIZE := Vector2(1080.0, 1920.0)
 const SPLASH_RU := preload("res://assets/generated/startup_splash.png")
 const SPLASH_EN := preload("res://assets/generated/startup_splash_en.png")
@@ -26,37 +24,14 @@ func _ready() -> void:
 	_create_action(tr("MENU_LEVELS"), "LevelsButton", func() -> void: levels_requested.emit())
 	_create_action(tr("MENU_SETTINGS"), "SettingsButton", func() -> void: settings_requested.emit())
 	_create_action(tr("MENU_ABOUT"), "AboutButton", _show_about)
-	_create_action(tr("REMOVE_ADS"), "RemoveAdsButton", func() -> void:
-		if _monetization != null:
-			_monetization.purchase_remove_ads()
-	)
 	_create_about_panel()
-	refresh_monetization()
 	resized.connect(_layout)
 	_layout()
 	queue_redraw()
 
 
-func configure(save_data: Dictionary, monetization_service: MonetizationService = null) -> void:
+func configure(save_data: Dictionary) -> void:
 	_save_data = save_data.duplicate(true)
-	_monetization = monetization_service
-	if _monetization != null and not _monetization.entitlement_changed.is_connected(refresh_monetization):
-		_monetization.entitlement_changed.connect(refresh_monetization)
-	if _monetization != null and not _monetization.product_info_changed.is_connected(refresh_monetization):
-		_monetization.product_info_changed.connect(refresh_monetization)
-	refresh_monetization()
-
-
-func refresh_monetization() -> void:
-	var button := get_node_or_null("RemoveAdsButton") as Button
-	if button != null:
-		button.visible = _monetization != null and _monetization.is_remove_ads_offer_available() and not _monetization.is_ads_removed()
-		if _monetization != null:
-			var price := _monetization.get_remove_ads_price()
-			var title := _monetization.get_remove_ads_title()
-			button.text = tr("REMOVE_ADS") if title.is_empty() or price.is_empty() else "%s\n%s" % [title, price]
-			button.icon = null
-		_layout()
 
 
 func _earliest_incomplete_level() -> int:

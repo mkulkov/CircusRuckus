@@ -4,7 +4,9 @@ extends RefCounted
 signal initialized(success: bool)
 signal interstitial_opened
 signal interstitial_finished(success: bool)
+signal ad_availability_checked(available: bool)
 signal purchase_finished(success: bool, product_id: String)
+signal entitlement_restored(ads_removed: bool)
 signal product_info_updated(product_id: String, title: String, price: String, currency_icon_url: String)
 signal platform_pause_requested
 signal platform_resume_requested
@@ -32,6 +34,9 @@ func show_banner(_visible: bool) -> void:
 
 func show_interstitial() -> void:
 	interstitial_finished.emit(false)
+
+func check_ad_availability() -> void:
+	ad_availability_checked.emit(true)
 
 func purchase(_product_id: String) -> void:
 	purchase_finished.emit(false, "")
