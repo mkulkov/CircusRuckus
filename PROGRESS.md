@@ -6,8 +6,9 @@
 - Добавлен production-пресет `Web - OK Mini Apps` с VK Bridge, SDK-объявлениями и общим release shell. `tools/export.ps1` включает аналитику v2 только на время релизного экспорта VK/ОК, подставляет платформу и версию из плана сборки и восстанавливает исходный файл конфигурации; обычный проект остаётся `mode="disabled"`.
 - Проверен через SSH установленный серверный контракт v2 и подтверждён game_id ClownSmash с продуктом remove_ads; повторная регистрация идемпотентна. Сам сервер не менялся, тестовые/синтетические события не отправлялись. Доставка аналитики из реального контейнера не проверена.
 - Собраны: VK 1.0.6 (code 7), `builds/release/vk/ru_mkulkov_circusruckus_1_0_6.zip`, SHA-256 `93D1D02B8E34E673A11F87C77B0BDF93AF0721724E16B5BB27F0B8D49368FEF6`; ОК 1.0.7 (code 8), `builds/release/ok/ru_mkulkov_circusruckus_1_0_7.zip`, SHA-256 `01300FDB3BE97EFBFFE4936E11997A8C94BAA04F55F7A0428A296F059A6A7924`.
-- PASS: Godot full runner и smoke, analytics fail-open после исправления устаревших ожиданий integration-теста, VK/OK bridge tests, 18 payment/server tests, VK Prod ValidateOnly (9/9 файлов, загрузка не запускалась). Реальное заполнение рекламного инвентаря, события из платформенного контейнера, UI кабинета и публикация не подтверждены.
-- Выпуск на VK Prod ожидает отдельного подтверждения пользователя непосредственно перед загрузкой. GitHub main пока не обновлён.
+- PASS: Godot full runner и smoke, analytics fail-open (167 assertions и три режима backend), VK/OK bridge tests, 18 payment/server tests и VK Prod ValidateOnly (9/9 файлов).
+- VK Prod для приложения 54768735 развёрнут после подтверждения в приложении VK. Hosting version `1791823675`; выданный production URL: `https://prod-app54768735-0d50f0402e66.pages-ac.vk-apps.ru/index.html`. Все 9 размещённых runtime-файлов прочитаны обратно и совпали с кандидатом по SHA-256. Успех деплоя/целостность хостинга подтверждены; запуск в VK-клиенте, реальные показы рекламы и доставка аналитических событий из контейнера не проверены.
+- После первой ошибки VK `15: Access denied: invalid file` deploy-скрипт уточнён: он явно передаёт CLI среду выбранного target (Dev/Prod/Both) и восстанавливает переменную процесса. Повторный Prod-деплой завершился успешно. Обновления `main` на GitHub: `f12625b`, `481b3c0`.
 
 
 ## 2026-10-12 — Удалено окно недоступности рекламы
