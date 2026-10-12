@@ -3,30 +3,52 @@ extends Control
 signal pause_pressed
 
 const DESIGN_SIZE := Vector2(1080.0, 1920.0)
-const MOBILE_HUD_VERTICAL_OFFSET := 112.0
+const MOBILE_HUD_VERTICAL_OFFSET := 28.0
 const WEB_HUD_VERTICAL_OFFSET := 0.0
+const SERIES_TEXTURE := preload("res://assets/ui/tickets/hud_series_v2.png")
+const TICKET_TEXTURE := preload("res://assets/ui/tickets/hud_tickets_ru_v1.png")
+# Regions reference the approved PNG directly; the artwork is not edited.
+const TICKET_REGIONS := {
+	&"time": Rect2(61, 68, 802, 216),
+	&"score": Rect2(30, 321, 882, 205),
+	&"series": Rect2(935, 331, 566, 190),
+	&"lives": Rect2(90, 771, 948, 192),
+	&"pause": Rect2(1182, 739, 236, 235),
+}
+
 const HAMMER_TEXTURE := preload("res://assets/generated/toy_hammer.png")
 
+
+
 var _score: int = 0
-var _target_score: int = 150
+var _max_combo: int = 0
 var _combo: int = 0
 var _lives: int = 3
-var _remaining_time: float = 60.0
-var _level_id: int = 1
-var _golden_hits: int = 0
-var _required_golden_hits: int = 0
+var _remaining_time: float = 25.0
+var _round_index: int = 1
+var _phase: String = ""
+var _pattern: String = ""
+var _recovery_hits: int = 0
+var _recovery_available: bool = false
 var _confusion_remaining: int = 0
 var _feedback_text: String = ""
 var _feedback_time: float = 0.0
+var _message_font: FontVariation
 var _pause_button: Button
 var _combo_scale: float = 1.0
 var _hammer_scales: Array[float] = [1.0, 1.0, 1.0]
 var _flying_hammer_visible: bool = false
 var _flying_hammer_position: Vector2 = Vector2.ZERO
-var _animation_tween: Tween
+var _hammer_tweens: Array[Tween] = [null, null, null]
+var _flight_tween: Tween
+var _panel_styles: Dictionary = {}
+var _warning_inset: StyleBoxFlat
 
 
 func _ready() -> void:
+	_message_font = FontVariation.new()
+	_message_font.base_font = ThemeDB.fallback_font
+	_message_font.variation_embolden = 0.8
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -49,18 +71,24 @@ func _process(delta: float) -> void:
 	_feedback_time = maxf(_feedback_time - delta, 0.0)
 	if _feedback_time <= 0.0:
 		_feedback_text = ""
+		queue_redraw()
+
+
+func set_round(index: int, phase: String, pattern: String = "") -> void:
+	_round_index = clampi(index, 1, 9007199254740991)
+	_phase = phase
+	_pattern = pattern
 	queue_redraw()
 
 
-func set_level(value: int, target_score: int, required_golden: int = 0) -> void:
-	_level_id = value
-	_target_score = maxi(target_score, 0)
-	_required_golden_hits = required_golden
-	queue_redraw()
-
-
-func set_golden_progress(value: int) -> void:
-	_golden_hits = value
+func set_run_details(max_combo: int, recovery_hits: int, recovery_available: bool) -> void:
+	var next_max := clampi(max_combo, 0, 9007199254740991)
+	var next_recovery := clampi(recovery_hits, 0, 20)
+	if _max_combo == next_max and _recovery_hits == next_recovery and _recovery_available == recovery_available:
+		return
+	_max_combo = next_max
+	_recovery_hits = next_recovery
+	_recovery_available = recovery_available
 	queue_redraw()
 
 
@@ -71,18 +99,18 @@ func set_confusion(value: int) -> void:
 
 func show_feedback(text: String) -> void:
 	_feedback_text = text
-	_feedback_time = 1.05
+	_feedback_time = 1.6
 	queue_redraw()
 
 
 func set_score(value: int) -> void:
-	_score = value
+	_score = clampi(value, 0, 9007199254740991)
 	queue_redraw()
 
 
 func set_combo(value: int) -> void:
-	_combo = value
-	if value >= 3:
+	_combo = clampi(value, 0, 9007199254740991)
+	if value in [3, 5, 10]:
 		_combo_scale = 1.0
 		var tween := create_tween()
 		tween.tween_method(_set_combo_scale, 1.0, 1.28, 0.09).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -100,23 +128,27 @@ func set_lives(value: int) -> void:
 
 
 func fly_hammer_to_hud(global_start: Vector2) -> void:
+	if _flight_tween != null and _flight_tween.is_valid():
+		_flight_tween.kill()
 	var vertical_offset := _get_vertical_offset()
 	_flying_hammer_visible = true
 	_flying_hammer_position = (get_global_transform().affine_inverse() * global_start) / maxf(size.x / DESIGN_SIZE.x, 0.001) - Vector2(0.0, vertical_offset)
-	var target := Vector2(790.0 + float(clampi(_lives, 0, 2)) * 92.0, 77.0)
-	var tween := create_tween()
-	tween.tween_method(
+	var target := _life_hammer_center(clampi(_lives - 1, 0, 2))
+	_flight_tween = create_tween()
+	_flight_tween.tween_method(
 		func(position_value: Vector2) -> void: _flying_hammer_position = position_value; queue_redraw(),
 		_flying_hammer_position,
 		target,
 		0.42
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_callback(func() -> void: _flying_hammer_visible = false; queue_redraw())
+	_flight_tween.tween_callback(func() -> void: _flying_hammer_visible = false; queue_redraw())
 
 
 func set_time(value: float) -> void:
+	var previous_second := ceili(_remaining_time)
 	_remaining_time = maxf(value, 0.0)
-	queue_redraw()
+	if ceili(_remaining_time) != previous_second:
+		queue_redraw()
 
 
 func set_pause_enabled(value: bool) -> void:
@@ -128,94 +160,149 @@ func _draw() -> void:
 	var origin := Vector2(0.0, _get_vertical_offset() * scale_factor)
 	draw_set_transform(origin, 0.0, Vector2.ONE * scale_factor)
 
-	_draw_pause_button(Vector2(74.0, 76.0))
-	_draw_panel(Rect2(145.0, 36.0, 220.0, 92.0), Color("724023"))
-	_draw_text(tr("LEVEL_VALUE") % _level_id, Rect2(154.0, 56.0, 202.0, 54.0), 29, Color("ffe48a"))
-
-	_draw_panel(Rect2(390.0, 24.0, 325.0, 112.0), Color("9e2f2f"))
-	_draw_clock(Vector2(442.0, 80.0))
-	_draw_text(_format_time(_remaining_time), Rect2(478.0, 48.0, 210.0, 65.0), 54, Color.WHITE)
-
-	_draw_panel(Rect2(748.0, 24.0, 292.0, 112.0), Color("254f94"))
-	for hammer_index in range(3):
-		_draw_life_hammer(Vector2(790.0 + hammer_index * 92.0, 77.0), hammer_index < _lives, _hammer_scales[hammer_index], scale_factor)
-	if _flying_hammer_visible:
-		_draw_life_hammer(_flying_hammer_position, true, 0.72, scale_factor)
-
-	_draw_panel(Rect2(92.0, 158.0, 345.0, 94.0), Color("67391f"))
-	_draw_star(Vector2(130.0, 205.0), 25.0)
-	_draw_text(tr("SCORE"), Rect2(164.0, 180.0, 82.0, 48.0), 24, Color("ffe08a"))
-	_draw_text("%d/%d" % [_score, _target_score], Rect2(245.0, 173.0, 176.0, 57.0), 32, Color.WHITE)
-
-	_draw_panel(Rect2(642.0, 158.0, 345.0, 94.0), Color("67391f"))
-	_draw_text(tr("COMBO"), Rect2(673.0, 180.0, 145.0, 48.0), 31, Color("ffe08a"))
-	var combo_rect := Rect2(838.0, 170.0, 122.0, 62.0)
-	var combo_size := 54 * _combo_scale
-	_draw_text("x%d" % _combo, combo_rect, roundi(combo_size), Color.WHITE)
-
-	if _required_golden_hits > 0:
-		_draw_status_chip(Rect2(92.0, 270.0, 270.0, 58.0), tr("GOLD_VALUE") % [_golden_hits, _required_golden_hits], Color("bb7a12"))
-	if _confusion_remaining > 0:
-		_draw_status_chip(Rect2(718.0, 270.0, 270.0, 58.0), tr("CONFUSION_VALUE") % _confusion_remaining, Color("633b91"))
+	_draw_pause_button(Vector2(74.0, 68.0))
+	_draw_ticket_values(scale_factor)
+	var message_rect := Rect2(40.0, 222.0, 1000.0, 86.0)
 	if not _feedback_text.is_empty():
 		var feedback_color := Color("fff1a3")
-		if _feedback_text == tr("BOMB_LIFE") or _feedback_text == tr("GLUTTON_ESCAPED"):
+		var warning := _feedback_text in [tr("BOMB_LIFE"), tr("GLUTTON_ESCAPED"), tr("THREE_MISSES_LIFE")]
+		if warning:
 			feedback_color = Color("ff9a87")
 		elif _feedback_text.begins_with(tr("CONFUSION_STRIKES").get_slice("%d", 0)) or _feedback_text == tr("HAMMER_CONFUSED"):
 			feedback_color = Color("e0b7ff")
-		_draw_text(_feedback_text, Rect2(270.0, 302.0, 540.0, 72.0), 36, feedback_color)
+		_draw_message_banner(_feedback_text, message_rect, feedback_color, warning)
+	else:
+		if _confusion_remaining > 0:
+			_draw_message_banner(tr("CONFUSION_VALUE") % _confusion_remaining, message_rect, Color("e0b7ff"))
+		elif _recovery_available:
+			_draw_message_banner(tr("RECOVERY_PROGRESS") % _recovery_hits, message_rect, Color("baffc1"))
+		else:
+			_draw_message_banner("", message_rect, Color("fff1a3"))
+
+
+func _draw_ticket(kind: StringName, rect: Rect2) -> void:
+	if kind == &"series":
+		draw_texture_rect_region(SERIES_TEXTURE, rect, Rect2(40, 182, 2092, 357))
+		return
+	draw_texture_rect_region(TICKET_TEXTURE, rect, TICKET_REGIONS[kind])
+
+
+func _draw_ticket_values(scale_factor: float) -> void:
+	_draw_ticket(&"time", Rect2(150, 24, 288, 88))
+	_draw_text(_format_time(_remaining_time), Rect2(226, 37, 192, 54), 42, Color.WHITE)
+	# Procedural caption: the approved level ticket contains baked campaign text.
+	_draw_blank_ticket(Rect2(454, 24, 288, 88))
+	_draw_text(tr("PRACTICE_LABEL") if _phase == "tutorial" else tr("ROUND"), Rect2(492, 42, 212, 24), 22, Color.WHITE)
+	_draw_text(str(_round_index), Rect2(492, 69, 212, 27), 32, Color.WHITE)
+	_draw_ticket(&"lives", Rect2(758, 24, 288, 88))
+	for index in range(3):
+		_draw_life_hammer(_life_hammer_center(index), index < _lives, _hammer_scales[index], scale_factor)
+	if _flying_hammer_visible:
+		_draw_life_hammer(_flying_hammer_position, true, 0.72, scale_factor)
+	_draw_blank_ticket(Rect2(40, 126, 488, 82))
+	_draw_text(tr("SCORE"), Rect2(100, 145, 160, 44), 28, Color.WHITE)
+	_draw_text(str(_score), Rect2(280, 145, 188, 44), 34, Color.WHITE)
+	if TranslationServer.get_locale().to_lower().begins_with("ru"):
+		_draw_ticket(&"series", Rect2(552, 126, 488, 82))
+	else:
+		_draw_blank_ticket(Rect2(552, 126, 488, 82))
+		_draw_text(tr("COMBO"), Rect2(610, 148, 165, 34), 28, Color.WHITE)
+	_draw_text(str(_combo), Rect2(790, 138, 190, 28), roundi(32 * _combo_scale), Color.WHITE)
+	_draw_text(tr("BEST_COMBO_VALUE") % _max_combo, Rect2(790, 170, 190, 22), 22, Color.WHITE)
+
+
+func _draw_blank_ticket(rect: Rect2) -> void:
+	# Reuse the approved ticket edges and blank paper; keep labels dynamic.
+	# The center patches come from the unprinted right half of the series art.
+	var cap := minf(rect.size.y * 0.55, rect.size.x * 0.15)
+	var trim := rect.size.y * 65.0 / 357.0
+	var source_x := [40.0, 1120.0, 1812.0]
+	var source_width := [320.0, 650.0, 320.0]
+	var source_y := [182.0, 247.0, 474.0]
+	var source_height := [65.0, 227.0, 65.0]
+	var dest_x := [rect.position.x, rect.position.x + cap, rect.end.x - cap]
+	var dest_width := [cap, rect.size.x - cap * 2.0, cap]
+	var dest_y := [rect.position.y, rect.position.y + trim, rect.end.y - trim]
+	var dest_height := [trim, rect.size.y - trim * 2.0, trim]
+	for row in range(3):
+		for column in range(3):
+			draw_texture_rect_region(SERIES_TEXTURE,
+				Rect2(dest_x[column], dest_y[row], dest_width[column], dest_height[row]),
+				Rect2(source_x[column], source_y[row], source_width[column], source_height[row]))
+
+
+func _draw_message_banner(text: String, rect: Rect2, color: Color, warning: bool = false) -> void:
+	draw_style_box(_make_panel_style(Color("405579")), rect)
+	if warning:
+		if _warning_inset == null:
+			_warning_inset = StyleBoxFlat.new()
+			_warning_inset.bg_color = Color("762333")
+			_warning_inset.set_corner_radius_all(12)
+		draw_style_box(_warning_inset, rect.grow(-12.0))
+	_draw_star(Vector2(rect.position.x + 39.0, rect.get_center().y), 16.0)
+	_draw_star(Vector2(rect.end.x - 39.0, rect.get_center().y), 16.0)
+	if text.is_empty():
+		return
+	var available_width := rect.size.x - 120.0
+	var lines: Array[String] = []
+	var line := ""
+	var font_size := 32
+	for word in text.to_upper().split(" "):
+		var candidate := word if line.is_empty() else line + " " + word
+		if not line.is_empty() and _message_font.get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x > available_width:
+			lines.append(line)
+			line = word
+		else:
+			line = candidate
+	lines.append(line)
+	var line_height := 36.0
+	var top := rect.get_center().y - line_height * float(lines.size()) * 0.5
+	for index in range(lines.size()):
+		var width := _message_font.get_string_size(lines[index], HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
+		var baseline := Vector2(rect.get_center().x - width * 0.5, top + float(index) * line_height + _message_font.get_ascent(font_size))
+		draw_string_outline(_message_font, baseline, lines[index], HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, 5, Color("251221"))
+		draw_string(_message_font, baseline, lines[index], HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color("fff1b8") if warning else color)
 
 
 func _draw_status_chip(rect: Rect2, text: String, fill: Color) -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill
-	style.border_color = Color("ffd166")
-	style.set_border_width_all(4)
-	style.set_corner_radius_all(20)
-	style.shadow_color = Color(0.0, 0.0, 0.0, 0.42)
-	style.shadow_size = 5
-	draw_style_box(style, rect)
-	_draw_text(text, rect.grow(-6.0), 25, Color.WHITE)
+	_draw_panel(rect, fill)
+	_draw_text(text, rect.grow(-6.0), 25, Color("ff9a87") if fill == Color("a72c2c") else Color("fff1b8"))
 
 
-func _draw_panel(rect: Rect2, fill: Color) -> void:
-	draw_style_box(_make_panel_style(fill), rect)
-	draw_line(rect.position + Vector2(16.0, 12.0), Vector2(rect.end.x - 16.0, rect.position.y + 12.0), Color(1.0, 0.72, 0.40, 0.34), 3.0, true)
-	for corner in [rect.position + Vector2(13.0, 13.0), rect.end - Vector2(13.0, 13.0), Vector2(rect.end.x - 13.0, rect.position.y + 13.0), Vector2(rect.position.x + 13.0, rect.end.y - 13.0)]:
-		draw_circle(corner, 5.0, Color("ffc64f"))
+func _draw_panel(rect: Rect2, _fill: Color) -> void:
+	draw_style_box(_make_panel_style(Color(1.0, 0.91, 0.72, 0.96)), rect)
 
 
 func _make_panel_style(fill: Color) -> StyleBoxFlat:
+	if _panel_styles.has(fill):
+		return _panel_styles[fill]
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill
-	style.border_color = Color("e79b31")
-	style.set_border_width_all(7)
-	style.set_corner_radius_all(14)
-	style.shadow_color = Color(0.12, 0.04, 0.02, 0.55)
-	style.shadow_size = 7
+	style.border_color = Color("c78b3c")
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(18)
+	style.shadow_color = Color(0.02, 0.01, 0.04, 0.25)
+	style.shadow_size = 3
+	_panel_styles[fill] = style
 	return style
 
 
 func _draw_pause_button(center: Vector2) -> void:
-	draw_circle(center + Vector2(4.0, 7.0), 57.0, Color(0.08, 0.03, 0.15, 0.45))
-	draw_circle(center, 56.0, Color("254f94"))
-	draw_arc(center, 50.0, 0.0, TAU, 48, Color("8ec6ff"), 5.0, true)
-	draw_rect(Rect2(center + Vector2(-19.0, -22.0), Vector2(12.0, 44.0)), Color.WHITE, true)
-	draw_rect(Rect2(center + Vector2(7.0, -22.0), Vector2(12.0, 44.0)), Color.WHITE, true)
+	_draw_ticket(&"pause", Rect2(center - Vector2(44, 44), Vector2(88, 88)))
 
 
 func _draw_clock(center: Vector2) -> void:
-	draw_circle(center, 35.0, Color("efe4d3"))
-	draw_arc(center, 35.0, 0.0, TAU, 32, Color("5b2e22"), 6.0, true)
-	draw_line(center, center + Vector2(0.0, -20.0), Color("5b2e22"), 5.0)
-	draw_line(center, center + Vector2(13.0, 6.0), Color("5b2e22"), 5.0)
+	draw_circle(center, 23.0, Color("efe4d3"))
+	draw_arc(center, 23.0, 0.0, TAU, 32, Color("d3ae65"), 2.0, true)
+	draw_line(center, center + Vector2(0.0, -15.0), Color("513c35"), 3.0)
+	draw_line(center, center + Vector2(10.0, 5.0), Color("513c35"), 3.0)
 
 
 func _draw_life_hammer(center: Vector2, active: bool, hammer_scale: float = 1.0, design_scale: float = 1.0) -> void:
 	var vertical_offset := _get_vertical_offset()
 	draw_set_transform((center + Vector2(0.0, vertical_offset)) * design_scale, 0.0, Vector2.ONE * hammer_scale * design_scale)
 	var tint := Color.WHITE if active else Color("625c67")
-	draw_texture_rect(HAMMER_TEXTURE, Rect2(-42.0, -42.0, 84.0, 84.0), false, tint)
+	draw_texture_rect(HAMMER_TEXTURE, Rect2(-30.0, -30.0, 60.0, 60.0), false, tint)
 	draw_set_transform(Vector2(0.0, vertical_offset * design_scale), 0.0, Vector2.ONE * design_scale)
 
 
@@ -227,17 +314,22 @@ func _set_combo_scale(value: float) -> void:
 func _animate_hammer(index: int, restored: bool) -> void:
 	if index < 0 or index >= _hammer_scales.size():
 		return
-	if _animation_tween != null and _animation_tween.is_valid():
-		_animation_tween.kill()
-	_animation_tween = create_tween()
+	if _hammer_tweens[index] != null and _hammer_tweens[index].is_valid():
+		_hammer_tweens[index].kill()
+	var tween := create_tween()
+	_hammer_tweens[index] = tween
 	if restored:
 		_hammer_scales[index] = 0.25
-		_animation_tween.tween_method(func(value: float) -> void: _hammer_scales[index] = value; queue_redraw(), 0.25, 1.25, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		_animation_tween.tween_method(func(value: float) -> void: _hammer_scales[index] = value; queue_redraw(), 1.25, 1.0, 0.10)
+		tween.tween_method(func(value: float) -> void: _hammer_scales[index] = value; queue_redraw(), 0.25, 1.25, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.tween_method(func(value: float) -> void: _hammer_scales[index] = value; queue_redraw(), 1.25, 1.0, 0.10)
 	else:
-		_animation_tween.tween_method(func(value: float) -> void: _hammer_scales[index] = value; queue_redraw(), 1.0, 1.18, 0.08)
-		_animation_tween.tween_method(func(value: float) -> void: _hammer_scales[index] = value; queue_redraw(), 1.18, 0.2, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		_animation_tween.tween_callback(func() -> void: _hammer_scales[index] = 1.0; queue_redraw())
+		tween.tween_method(func(value: float) -> void: _hammer_scales[index] = value; queue_redraw(), 1.0, 1.18, 0.08)
+		tween.tween_method(func(value: float) -> void: _hammer_scales[index] = value; queue_redraw(), 1.18, 0.2, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tween.tween_callback(func() -> void: _hammer_scales[index] = 1.0; queue_redraw())
+
+
+func _life_hammer_center(index: int) -> Vector2:
+	return Vector2(827 + index * 75, 68)
 
 
 func _draw_star(center: Vector2, radius: float) -> void:
@@ -250,7 +342,19 @@ func _draw_star(center: Vector2, radius: float) -> void:
 
 
 func _draw_text(text: String, rect: Rect2, font_size: int, color: Color) -> void:
-	CircusUIStyle.draw_text(self, text, rect, font_size, color, 2)
+	var text_width := ThemeDB.fallback_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
+	var fitted_size := font_size
+	if text_width > rect.size.x:
+		fitted_size = maxi(1, floori(float(font_size) * rect.size.x / text_width))
+	var font := ThemeDB.fallback_font
+	var text_width_fitted := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted_size).x
+	var baseline := Vector2(rect.get_center().x - text_width_fitted * 0.5, rect.get_center().y + (font.get_ascent(fitted_size) - font.get_descent(fitted_size)) * 0.5)
+	var ink := Color("59402f")
+	if color == Color("ff9a87"):
+		ink = Color("a52f35")
+	elif color == Color("baffc1"):
+		ink = Color("24633b")
+	draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted_size, ink)
 
 
 func _layout_pause_button() -> void:

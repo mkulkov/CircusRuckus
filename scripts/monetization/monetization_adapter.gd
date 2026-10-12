@@ -38,5 +38,8 @@ func show_interstitial() -> void:
 func check_ad_availability() -> void:
 	ad_availability_checked.emit(true)
 
+func cancel_ad_request() -> void:
+	pass
+
 func purchase(_product_id: String) -> void:
 	purchase_finished.emit(false, "")

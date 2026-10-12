@@ -50,6 +50,7 @@ func show_banner(visible: bool) -> void:
 		banner_status_changed.emit(false, "ads_sdk_unavailable")
 		return
 	if not visible:
+		_banner_requested = false
 		_ads.hideBanner()
 		banner_status_changed.emit(false, "hidden")
 		return
@@ -98,6 +99,9 @@ func _on_banner_loaded() -> void:
 func _on_banner_failed(error_code: int) -> void:
 	_banner_requested = false
 	banner_status_changed.emit(false, "load_failed_%d" % error_code)
+
+func cancel_ad_request() -> void:
+	_interstitial_requested = false
 
 func _on_interstitial_loaded() -> void:
 	if not _interstitial_requested:

@@ -28,3 +28,7 @@
 Автоматический цикл: закрытая коробка → открытие крышки → короткое сжатие → быстрый вылет → overshoot → затухающее покачивание → ожидание → возврат в коробку → закрытие крышки → пауза.
 
 Удар: клик по видимому клоуну → замах → удар с impact-вспышкой → squash клоуна и сжатие пружины → короткий отскок → проваливание в коробку → закрытие крышки → пауза и новый цикл.
+
+## Gameplay override approved 2026-10-09
+
+The tuned pop/hide/swing motion above is retained. The result is reserved at accepted tap, not at visual impact. A readable head at local y <= 80 with lid open is hittable during OPENING; RoundProfile available time starts there. Reservation freezes the pose until the 0.22 s wind-up ends, then existing squash/hide runs. Lifecycle guards prevent a stale visual reaction after clear/restart. Round windows are gameplay tuning, not replacements of AnimationLab defaults.

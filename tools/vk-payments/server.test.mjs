@@ -4,7 +4,7 @@ import { createHash, createHmac } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname, basename } from 'node:path';
-import { createPaymentService, createPaymentServer, parseForm, verifyLaunch, isVkHostingOrigin } from './server.mjs';
+import { createPaymentService, createPaymentServer, parseForm, verifyLaunch, isVkHostingOrigin, normalizeProgress, mergeProgress } from './server.mjs';
 
 test('VK hosting patterns are restricted to each app and generated host templates', () => {
   for (const origin of ['https://stage-app54768735-8edda10463a2.pages.vk-apps.ru', 'https://prod-app54768735-bf3491f22412.pages-ac.vk-apps.ru']) {
@@ -288,4 +288,82 @@ test('current OK launcher uses VK app ID, OK app/user IDs and millisecond timest
     assert.equal(service.entitlement(params).remove_ads, true);
     assert.equal(service.entitlement({ ...params, vk_ok_user_id: '789' }).remove_ads, false);
   } finally { service.close(); }
+});
+
+const progressV2 = overrides => ({ save_version: 2, tutorial_version: 1, endless_rules_version: 1,
+  learned_lessons: ['normal'], best_run_score: 500, best_run_combo: 8, best_run_rounds: 3,
+  best_run_active_seconds: 135.5, legacy_campaign: { highest_unlocked_level: 2, completed_levels: [1],
+    best_scores: { '1': 100 }, best_combos: { '1': 4 } }, music_enabled: false, sound_enabled: true,
+  haptics_enabled: true, ads_removed: true, ...overrides });
+
+test('v1/v2 cloud compatibility preserves mastery and independent records in both arrival orders', () => {
+  const service = createPaymentService(config);
+  try {
+    const user = launch();
+    service.progress({ ...user, progress: JSON.stringify(progress()) });
+    let data = service.progress({ ...user, progress: JSON.stringify(progressV2()) }).data;
+    assert.equal(data.save_version, 2);
+    assert.equal(data.ads_removed, false);
+    assert.deepEqual(data.learned_lessons, ['normal']);
+    data = service.progress({ ...user, progress: JSON.stringify(progress({ highest_unlocked_level: 3,
+      completed_levels: [2], best_scores: { '2': 300 } })) }).data;
+    assert.equal(data.save_version, 2);
+    assert.equal(data.best_run_score, 500);
+    assert.deepEqual(data.learned_lessons, ['normal']);
+    assert.deepEqual(data.legacy_campaign.completed_levels, [1, 2]);
+    assert.equal(data.legacy_campaign.best_scores['1'], 100);
+    data = service.progress({ ...user, progress: JSON.stringify(progressV2({ learned_lessons: ['bomb', 'normal', 'bomb'],
+      best_run_score: 200, best_run_combo: 20, best_run_rounds: 1, best_run_active_seconds: 160 })) }).data;
+    assert.deepEqual(data.learned_lessons, ['normal', 'bomb']);
+    assert.equal(data.best_run_score, 500);
+    assert.equal(data.best_run_combo, 20);
+    assert.equal(data.best_run_rounds, 3);
+    assert.equal(data.best_run_active_seconds, 160);
+    assert.equal(service.entitlement(user).remove_ads, false);
+    assert.throws(() => service.progress({ ...user, progress: JSON.stringify({ ...progressV2(), save_version: 99 }) }));
+    assert.equal(service.progress(user).data.best_run_score, 500);
+  } finally { service.close(); }
+});
+
+test('v2 validation bounds JS numbers and rejects arbitrary nested data while retaining valid fields', () => {
+  const data = normalizeProgress(progressV2({ learned_lessons: ['normal', 'foreign', 'normal', { injected: 1 }],
+    best_run_score: Number.MAX_SAFE_INTEGER + 1, best_run_combo: -1, best_run_rounds: 1.5,
+    best_run_active_seconds: Infinity, arbitrary: { purchase: true } }));
+  assert.deepEqual(data.learned_lessons, ['normal']);
+  for (const field of ['best_run_score', 'best_run_combo', 'best_run_rounds', 'best_run_active_seconds']) assert.equal(data[field], 0);
+  assert.equal(data.music_enabled, false);
+  assert.equal(data.legacy_campaign.best_scores['1'], 100);
+  assert.equal(data.ads_removed, false);
+  assert.equal(Object.hasOwn(data, 'arbitrary'), false);
+  assert.equal(normalizeProgress(progressV2({ best_run_score: Number.MAX_SAFE_INTEGER })).best_run_score, Number.MAX_SAFE_INTEGER);
+  assert.throws(() => normalizeProgress(progressV2({ tutorial_version: NaN })));
+  assert.throws(() => normalizeProgress(progressV2({ endless_rules_version: 0 })));
+  assert.throws(() => normalizeProgress(progressV2({ legacy_campaign: { highest_unlocked_level: 2,
+    completed_levels: [1], best_scores: { '10': 100 }, best_combos: {} } })));
+});
+
+test('cloud merge only unions lessons/maxima with matching content versions and preserves newer versions', () => {
+  const newer = progressV2({ tutorial_version: 2, endless_rules_version: 2, learned_lessons: ['bomb'], best_run_score: 10 });
+  for (const data of [mergeProgress(progressV2(), newer), mergeProgress(newer, progressV2())]) {
+    assert.equal(data.tutorial_version, 2);
+    assert.deepEqual(data.learned_lessons, ['bomb']);
+    assert.equal(data.endless_rules_version, 2);
+    assert.equal(data.best_run_score, 10);
+  }
+});
+
+test('v2 HTTP roundtrip does not downgrade after legacy device writes', async () => {
+  const service = createPaymentService(config), server = createPaymentServer(service, ['https://game.example']);
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const url = `http://127.0.0.1:${server.address().port}/vk/payments/progress`;
+  const request = params => fetch(url, { method: 'POST', headers: { Origin: 'https://game.example',
+    'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(params) });
+  try {
+    assert.equal((await request({ ...launch(), progress: JSON.stringify(progressV2()) })).status, 200);
+    assert.equal((await request({ ...launch(), progress: JSON.stringify(progress()) })).status, 200);
+    const data = (await (await request(launch())).json()).data;
+    assert.equal(data.save_version, 2);
+    assert.equal(data.best_run_score, 500);
+    assert.equal(data.ads_removed, false);
+  } finally { await new Promise(resolve => server.close(resolve)); service.close(); }
 });

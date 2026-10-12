@@ -13,6 +13,7 @@ var _purchase_callback: JavaScriptObject
 var _availability_callback: JavaScriptObject
 var _platform_pause_callback: JavaScriptObject
 var _platform_resume_callback: JavaScriptObject
+var _ad_request_generation := 0
 
 
 func initialize() -> void:
@@ -96,29 +97,42 @@ func show_banner(visible: bool) -> void:
 
 
 func show_interstitial() -> void:
+	_ad_request_generation += 1
 	if _bridge == null:
 		interstitial_finished.emit(false)
 		return
-	_interstitial_opened_callback = JavaScriptBridge.create_callback(_on_interstitial_opened)
-	_interstitial_finished_callback = JavaScriptBridge.create_callback(_on_interstitial_finished)
+	_interstitial_opened_callback = JavaScriptBridge.create_callback(_on_interstitial_opened.bind(_ad_request_generation))
+	_interstitial_finished_callback = JavaScriptBridge.create_callback(_on_interstitial_finished.bind(_ad_request_generation))
 	_bridge.showInterstitial(_interstitial_opened_callback, _interstitial_finished_callback)
 
 func check_ad_availability() -> void:
+	_ad_request_generation += 1
 	if _bridge == null:
 		ad_availability_checked.emit(false)
 		return
-	_availability_callback = JavaScriptBridge.create_callback(_on_ad_availability)
+	_availability_callback = JavaScriptBridge.create_callback(_on_ad_availability.bind(_ad_request_generation))
 	_bridge.checkAdAvailability(_availability_callback)
 
-func _on_ad_availability(arguments: Array) -> void:
+func cancel_ad_request() -> void:
+	_ad_request_generation += 1
+
+func _on_ad_availability(arguments: Array, generation: int) -> void:
+	if generation != _ad_request_generation:
+		return
+	_ad_request_generation += 1
 	ad_availability_checked.emit(bool(_decode_callback_dictionary(arguments).get("available", false)))
 
 
-func _on_interstitial_opened(_arguments: Array) -> void:
+func _on_interstitial_opened(_arguments: Array, generation: int) -> void:
+	if generation != _ad_request_generation:
+		return
 	interstitial_opened.emit()
 
 
-func _on_interstitial_finished(arguments: Array) -> void:
+func _on_interstitial_finished(arguments: Array, generation: int) -> void:
+	if generation != _ad_request_generation:
+		return
+	_ad_request_generation += 1
 	var data := _decode_callback_dictionary(arguments)
 	interstitial_finished.emit(bool(data.get("success", false)))
 

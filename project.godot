@@ -11,6 +11,7 @@ config_version=5
 [application]
 
 config/name="Цирковой переполох"
+config/version="1.0.7"
 run/main_scene="res://scenes/boot/Boot.tscn"
 config/features=PackedStringArray("4.7")
 boot_splash/bg_color=Color(0.047, 0.027, 0.102, 1)
@@ -42,6 +43,11 @@ locale/fallback="ru"
 
 [monetization]
 
+policy/active_interval_seconds=120.0
+policy/cycle_rounds=5
+policy/retry_backoff_seconds=60.0
+policy/request_timeout_seconds=30.0
+
 vk/payments_base_url="https://vk-games-shop.mkulkov.ru/games/circusrucus"
 rustore/yandex_appmetrica_api_key=""
 rustore/yandex_banner_id="R-M-20038632-1"
@@ -53,3 +59,6 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 renderer/rendering_method.driver="opengl3"
+
+[autoload]
+OptionalAnalytics="*res://app/analytics/optional_analytics.gd"

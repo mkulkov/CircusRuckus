@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="RoundProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/round_profile.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "build"
+spawn_interval_min = 0.95
+spawn_interval_max = 1.2
+end_spawn_interval_multiplier = 1
+max_active_characters = 6
+max_decision_targets = 2
+double_spawn_chance = 0.08
+normal_visible_time = 2.2
+fast_visible_time = 0.675
+golden_visible_time = 2
+normal_weight = 70
+fast_weight = 7
+golden_weight = 9
+bomb_weight = 6
+clock_weight = 4
+glutton_weight = 4
+allowed_patterns = PackedStringArray("steady", "pairs", "precision", "golden_series")

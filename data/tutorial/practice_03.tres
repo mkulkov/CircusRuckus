@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="RoundProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/round_profile.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "recovery"
+spawn_interval_min = 1
+spawn_interval_max = 1.25
+end_spawn_interval_multiplier = 1
+max_active_characters = 4
+max_decision_targets = 1
+double_spawn_chance = 0
+normal_visible_time = 2.4
+fast_visible_time = 0.7
+golden_visible_time = 2.2
+normal_weight = 70
+fast_weight = 15
+golden_weight = 15
+bomb_weight = 0
+clock_weight = 0
+glutton_weight = 0
+allowed_patterns = PackedStringArray("steady", "golden_series")

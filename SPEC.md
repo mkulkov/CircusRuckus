@@ -8,7 +8,7 @@ The action takes place inside a circus tent. The central playfield contains **ni
 
 The player must rapidly answer a simple question:
 
-**Hit this clown, ignore it, or intentionally sacrifice combo for its bonus?**
+**Hit this clown, ignore it, or collect a bonus while preserving the series?**
 
 The game is built around immediate feedback:
 
@@ -22,13 +22,13 @@ Orientation: portrait.
 Base design size: 1080×1920.
 Renderer: Compatibility.
 Primary control: one-finger tap.
-MVP content: 1 world, 9 levels, 7 gameplay clown types, no metagame economy.
+Content: one world, persistent training, endless five-phase cycles, six enabled types; Drunk disabled.
 
 ---
 
 ## 2. MVP hypothesis
 
-The MVP exists to test whether the core interaction is enjoyable for repeated 60-second sessions.
+The MVP exists to test whether the core interaction is enjoyable for repeated 25-second sessions.
 
 The essential fun must come from:
 
@@ -49,8 +49,7 @@ Do not implement in MVP:
 - coins/currency;
 - shop/upgrades;
 - hammer or clown purchases;
-- ads/IAP;
-- accounts/backend/cloud saves;
+- new monetization or backend systems beyond the existing platform integrations;
 - online leaderboard;
 - daily tasks/battle pass/energy;
 - paid continues;
@@ -77,8 +76,7 @@ Visual identity:
 - toy-like circus props;
 - cheerful rather than scary clowns.
 
-All nine levels use this world.
-Levels differ primarily by gameplay pacing and character mix, not by new environment production.
+All rounds use this world and vary pacing and character mix.
 
 ---
 
@@ -102,29 +100,15 @@ Rules:
 
 ---
 
-## 6. Level duration
+## 6. Round duration
 
-Base duration:
-
-```text
-60.0 seconds
-```
-
-Timer decreases only while state is `RUNNING`.
-Timer pauses during countdown, pause, result and finished states.
-
-Clock can extend time.
-Per-level total Clock bonus cap:
-
-```text
-30 seconds
-```
+25 seconds of active play per round; Clock halves new clown spawn speed for 5 active seconds, with three Clock spawns per round. Repeat hits refresh five seconds without stacking; pauses freeze the effect and new rounds clear it. Existing clown movement and availability are unaffected. Round elapsed is monotonic and acceleration clamps at 25 seconds. Run time excludes practice, countdown, pauses, ads and transitions.
 
 ---
 
 ## 7. Lives
 
-Player starts each level with 3 lives, displayed as hammers matching the gameplay hammer:
+Player starts each run with 3 lives, displayed as hammers matching the gameplay hammer:
 
 ```text
 🔨 🔨 🔨
@@ -139,13 +123,13 @@ A life is lost when:
 
 1. player accumulates three consecutive misses: empty-box strikes or escaped Normal/Fast/Golden;
 2. player hits Bomb;
+3. Glutton escapes (one life; ordinary miss counter resets).
 
 ### 7.2. No life loss for
 
 - first or second consecutive miss on Normal/Fast/Golden;
 - ignored Bomb;
 - missed Clock;
-- missed Glutton;
 - first or second consecutive empty-box strike, including while Clock or Glutton is active;
 - direct hit on Drunk;
 - combo reset.
@@ -156,11 +140,7 @@ A life is lost when:
 
 There is no currency.
 
-Base scoring hit:
-
-```text
-+10
-```
+Scoring: Normal +10, Fast +20, Golden +50.
 
 Scoring targets:
 
@@ -171,7 +151,7 @@ Scoring targets:
 Successful hit:
 
 ```text
-score += 10
+score += points_for_character
 combo += 1
 ```
 
@@ -208,7 +188,8 @@ Initial combo is 0.
 
 - Bomb is correctly ignored;
 - Clock is ignored;
-- Drunk is ignored.
+- Drunk is ignored;
+- Clock or Glutton is hit.
 
 ---
 
@@ -220,7 +201,7 @@ Initial combo is 0.
 - Fast
 - Golden
 
-Hit: +10 score, +1 combo.
+Hit: Normal +10, Fast +20, Golden +50; +1 combo.
 
 ### BONUS_OR_RISK_REWARD
 
@@ -258,7 +239,7 @@ Escape:
 combo = 0
 ```
 
-No life loss.
+Counts as one consecutive miss.
 Suggested visible duration: 1.0–1.5 sec depending on level.
 
 ---
@@ -272,30 +253,30 @@ Visual markers: goggles and/or propeller hat, movement streaks, energetic expres
 Hit:
 
 ```text
-score += 10
+score += 20
 combo += 1
 ```
 
-Escape resets combo, no life loss.
-Suggested visible duration on full introduction: 0.50–0.60 sec.
+Escape resets combo and counts as one consecutive miss.
+Fast availability: .550–.700 seconds according to phase.
 
 ---
 
 ## 13. Golden clown
 
-Role: rare scoring target and level-objective target.
+Role: rare scoring target.
 
 Visual: gold hair/clothes, crown, star sparkles.
 
 Hit:
 
 ```text
-score += 10
+score += 50
 combo += 1
 golden_hits += 1
 ```
 
-Escape resets combo, no life loss.
+Escape resets combo and counts as one consecutive miss.
 
 No coins and no special score multiplier in MVP.
 
@@ -321,27 +302,27 @@ Score +0.
 
 Escape: no penalty, combo unchanged.
 
-Feedback: cartoon flash, smoke puff, stronger short shake, apple HUD loss animation.
+Feedback: cartoon flash, smoke puff, stronger short shake, hammer HUD loss animation.
 
 ---
 
 ## 15. Clock clown
 
-Role: optional time bonus at the cost of combo.
+Role: optional spawn slowdown preserving combo.
 
 Visual: large clock prop.
 
 Hit:
 
 ```text
-remaining_time += 10.0
+spawn_speed *= 0.5 for 5 active seconds
 ```
 
-Subject to max time bonus cap.
+Repeat hits refresh the five-second effect; no duration or multiplier stacking. Round time is unchanged.
 Score +0.
 Escape: no penalty, combo unchanged.
 
-HUD feedback: `+10 SEC`, timer bounce, clock SFX.
+HUD feedback: `SPAWNS ×0.5 · 5 SEC`, clock SFX.
 
 ---
 
@@ -372,9 +353,11 @@ Show brief “full lives” feedback.
 
 ```text
 combo = 0
+lives -= 1
+consecutive_misses = 0
 ```
 
-Animation concept: HUD apple flies to Glutton → Glutton eats apple → hides.
+Animation concept: HUD hammer flies to Glutton → Glutton eats apple → hides.
 If lives becomes 0, immediate loss.
 
 ---
@@ -419,7 +402,7 @@ UI/Pause/Settings taps do not consume the counter.
 While confused:
 
 - show bottle/status icon;
-- show remaining 3/2/1;
+- show remaining 1;
 - mild wobble allowed;
 - hammer visibly hits actual random box.
 
@@ -436,9 +419,9 @@ Tap sequence:
 
 1. receive gameplay tap;
 2. resolve requested/actual slot;
-3. swing hammer;
-4. impact;
-5. target response;
+3. reserve the current lifecycle and apply the result exactly once;
+4. swing hammer (visual only);
+5. impact and target reaction;
 6. hammer exits.
 
 Suggested timings:
@@ -468,7 +451,7 @@ at 3 misses: lives -= 1; consecutive_misses = 0
 ```
 
 Feedback: small box shake, wooden thunk, tiny dust.
-Show life-loss feedback on the third consecutive miss. Any clown hit resets the miss streak. Ignored Bomb/Clock/Glutton and UI taps do not change it; pausing preserves it and starting a level clears it.
+Show life-loss feedback on the third consecutive miss. Any clown hit resets the miss streak. Ignored Bomb/Clock and UI taps do not change it; Glutton escape resets it and removes one life; pausing preserves it and starting a level clears it.
 
 ---
 
@@ -545,7 +528,7 @@ Central owner of all spawn logic.
 
 Responsibilities:
 
-- read `LevelConfig`;
+- read `RoundProfile`;
 - schedule spawn attempts;
 - choose character by weights;
 - choose eligible free BoxSlot;
@@ -567,202 +550,51 @@ Mandatory baseline constraints:
 
 1. Never spawn into non-IDLE slot.
 2. Never have two occupants in one slot.
-3. Max active follows LevelConfig.
+3. Max active follows RoundProfile.
 4. No new Drunk while confusion active.
 5. Max one Glutton active.
 6. Max one Bomb active.
-7. Clock count obeys per-level cap.
+7. Clock count obeys per-round cap.
 8. Avoid same slot more than twice consecutively.
-9. Levels 1–8: avoid Bomb + Glutton exact simultaneous spawn.
-10. Levels 1–8: avoid two hazards simultaneously.
-11. Levels 1–8: avoid unfair Fast + Glutton exact simultaneous pop.
-12. Double spawn may be staggered 80–200 ms.
-
-Level 9 may be more aggressive but must remain readable.
+9. Bomb+Glutton and Fast+Glutton overlap are forbidden at every round index.
+10. Hazard overlap is forbidden.
+11. Delayed scoring pairs repeat all limits and generation/pause checks.
 
 ---
 
 ## 25. Game state
 
-```text
-LOADING
-COUNTDOWN
-RUNNING
-PAUSED
-FINISHED_WIN
-FINISHED_LOSS
-```
-
-Gameplay timer/input logic runs only in appropriate states.
+LOADING, COUNTDOWN, RUNNING, PAUSED, ROUND_TRANSITION, FINISHED_LOSS. Pause reasons are owned separately. Zero lives has priority over transitions.
 
 ---
 
-## 26. Level start
+## 26. Run start
 
-Sequence:
-
-```text
-3
-2
-1
-GO!
-```
-
-Total around 2–3 seconds.
-During countdown, board taps are ignored, SpawnDirector is stopped, timer is stopped.
-At GO, state becomes RUNNING.
+start_run initializes 3 lives, zero counters and one RNG stream. Countdown occurs once. start_round resets only local timer, Clock quotas, round metrics and spawn plan.
 
 ---
 
-## 27. Level finish
+## 27. Round and run finish
 
-Immediately stop SpawnDirector, gameplay input and timer.
-Hide or settle active characters.
-Show Results after about 0.4–0.7 sec.
-
-Win: timer reaches zero, objectives satisfied, at least one life.
-Loss: lives reaches zero, or timer reaches zero with objective failure.
+Timer expiry with lives enters ROUND_TRANSITION: spawning and input stop; existing animations complete without escape penalties. Round results wait for Continue before advancing. Lives, score, series, misses and active run time carry over. A run ends once at zero lives or voluntary restart/menu. Records checkpoint at boundaries and exit.
 
 ---
 
-## 28. Objectives
+## 28. No mandatory objectives
 
-Supported MVP objective types:
-
-- target score;
-- minimum max combo;
-- required Golden hits.
-
-Keep objective implementation simple and typed/data-driven.
+No score, Golden or combo requirements, unlocks or campaign progression. Normal gives +10, Fast +20, Golden +50; combo never multiplies score.
 
 ---
 
-## 29. Initial level balance
+## 29. Cycles and balance
 
-All values are tunable defaults in resources, not hardcoded gameplay branches. Every level schedules its active character types at random moments from 10% through 75% of the round; weights control all other spawns. During the current tuning pass, Fast, Golden and Drunk are disabled from automatic spawning.
-
-### Level 1 — Introduction
-
-- Normal weight 100; each other type weight 1
-- max active 1
-- visible 0.75 sec
-- spawn interval 0.25–0.31 sec
-- objective score >= 150
-
-### Level 2 — Rhythm
-
-- Normal weight 100; each other type weight 1
-- max active 1
-- visible 0.625 sec
-- spawn 0.20–0.27 sec
-- objective score >= 250
-
-### Level 3 — Speed
-
-- Normal weight 100; each other type weight 1
-- max active 1
-- visible 0.475 sec
-- spawn 0.16–0.22 sec
-- objective score >= 300
-
-### Level 4 — Two targets
-
-- Normal weight 100; each other type weight 1
-- max active 2
-- double-spawn chance 35%
-- visible 0.50 sec
-- spawn 0.17–0.23 sec
-- objective score >= 400
-
-### Level 5 — Golden
-
-- Normal 88; Golden 12; each other type 1
-- max active 2
-- Golden visible 0.35 sec
-- objective: score >= 350
-
-### Level 6 — Bomb + combo discipline
-
-- Normal 78; Bomb 22; each other type 1
-- max active 2
-- objectives: score >= 350; max_combo >= 5
-- first hint: `БОМБА! НЕ БЕЙ!`
-
-### Level 7 — Fast
-
-- Normal 65; Fast 25; Bomb 10; each other type 1
-- max active 2
-- Fast visible 0.275 sec
-- Normal visible 0.45 sec
-- objective score >= 400
-
-### Level 8 — Specials
-
-- Normal 55; Fast 12; Golden 1; Bomb 8; Clock 8; Glutton 10; Drunk 7
-- max active 2
-- objective score >= 350
-- guarantee at least one appearance of every clown type
-
-### Level 9 — Final mix
-
-- Normal 43
-- Fast 18
-- Golden 8
-- Bomb 10
-- Clock 5
-- Glutton 9
-- Drunk 7
-- max active 2
-- double-spawn chance 50%
-- objectives: score >= 500; max_combo >= 8
+Five phases repeat: recovery, build, variation, pressure, peak. Cycle 1 and cycle 100 use identical limits. Numeric sources: data/round_profiles/*.tres. Phase/pattern/seed are reproducible through RoundDirector. Patterns steady, pairs, precision, golden_series use a shuffled permitted bag, maximum two consecutive repeats. Only pairs enables staggered scoring pairs. Assistance is 0..2, applied between rounds: each step multiplies intervals/scoring windows by 1.05 (two steps 1.10), never harder than base. EMA accuracy alpha .25 needs >=10 opportunities; loss or valid EMA <.65 increases one step; two valid lossless rounds with EMA >.90 remove one step. Recovery grants one life per cycle for 20 uninterrupted scoring hits while injured in recovery, resets on error/full lives/leaving recovery; no passive healing. See docs/ENDLESS_IMPLEMENTATION_REPORT.md for actual verification.
 
 ---
 
-## 30. LevelConfig Resource
+## 30. RoundProfile Resource
 
-Suggested fields:
-
-```text
-level_id: int
-display_name: String
-duration: float
-
-target_score: int
-required_max_combo: int
-required_golden_hits: int
-
-spawn_interval_min: float
-spawn_interval_max: float
-max_active_characters: int
-double_spawn_chance: float
-
-normal_weight: float
-fast_weight: float
-golden_weight: float
-bomb_weight: float
-clock_weight: float
-glutton_weight: float
-drunk_weight: float
-
-normal_visible_time: float
-fast_visible_time: float
-golden_visible_time: float
-bomb_visible_time: float
-clock_visible_time: float
-glutton_visible_time: float
-drunk_visible_time: float
-
-max_clock_spawns: int
-max_time_bonus: float
-```
-
-Resources:
-
-```text
-res://data/levels/level_01.tres
-...
-res://data/levels/level_09.tres
-```
+class_name RoundProfile; typed duration, spawn intervals/end multiplier, occupancy and decision limits, weights, availability windows, Clock caps, recovery_hits_required and allowed_patterns. Five shared resources are duplicated for effective modifiers; tutorial resources are separate. Maximum 6 occupied/2 decisions, double <=.22, final interval >=.6716, windows Normal>=1.50/Fast>=0.550/Golden>=1.60/Bomb>=1.50/Clock>=1.90/Glutton>=2.20. Drunk=0.
 
 ---
 
@@ -818,11 +650,11 @@ res://
 │   └── audio/
 ├── data/
 │   ├── characters/
-│   └── levels/
+│   ├── round_profiles/
+│   └── tutorial/
 ├── scenes/
 │   ├── boot/
 │   ├── menu/
-│   ├── levels/
 │   ├── gameplay/
 │   ├── characters/
 │   ├── components/
@@ -839,7 +671,7 @@ res://
 │   ├── test_lives.gd
 │   ├── test_drunk.gd
 │   ├── test_spawn_director.gd
-│   └── test_level_configs.gd
+│   └── endless_runtime_test.gd
 └── builds/
 ```
 
@@ -849,22 +681,9 @@ Ignore `builds/` in version control.
 
 ## 33. Main scenes
 
-Required:
+The active scenes are `boot/Boot.tscn`, `ui/StartupSplash.tscn`, `ui/MainMenu.tscn`, `gameplay/Gameplay.tscn`, `gameplay/BoxSlot.tscn`, `characters/ClownBase.tscn`, `ui/SessionOverlay.tscn` and `ui/SettingsOverlay.tscn`.
 
-```text
-Boot.tscn
-MainMenu.tscn
-LevelSelect.tscn
-Gameplay.tscn
-ResultsPopup.tscn
-PausePopup.tscn
-SettingsPopup.tscn
-BoxSlot.tscn
-ClownBase.tscn
-Hammer.tscn
-FloatingText.tscn
-AppleFlyFX.tscn
-```
+SessionOverlay owns pause, tutorial, transition and run results. Hammer and impact effects retain their existing procedural implementation. Campaign selection and separate campaign result scenes are not used.
 
 ---
 
@@ -882,7 +701,7 @@ Gameplay
 │   └── FloatingTextLayer
 ├── HUD
 │   ├── PauseButton
-│   ├── LevelLabel
+│   ├── RoundLabel
 │   ├── TimerPanel
 │   ├── ScorePanel
 │   ├── ComboPanel
@@ -903,10 +722,12 @@ Owns authoritative runtime gameplay state.
 Responsibilities:
 
 ```text
-start_level
-pause_level
-resume_level
-finish_level
+start_run
+start_round
+pause_level(reason)
+resume_level(reason)
+complete_round
+finish_run
 handle_board_tap
 resolve_character_hit
 add_score
@@ -1004,72 +825,31 @@ Priority:
 5. score;
 6. combo.
 
-Required: Pause, Level, Timer, Score, Combo, three hammers.
+Required: Pause, round/training number, Timer, total Score, current/best Series, three hammers. Phase/round descriptions are not displayed. A permanently visible message sign sits directly below the tickets; its text may be empty between messages. Bonus feedback, game messages, confusion and conditional recovery progress share that sign.
 
 Lives loss: hammer shake/bounce → fade/shrink.
 Life restore: hammer flies from Glutton → HUD slot pops in.
-Combo 0 may be hidden. x3+ should bounce.
+Show current Series without a multiplier; accent only at 3/5/10. Show total score, best run series and recovery progress only while injured in recovery. No permanent miss row or mandatory objectives.
 Timer displays MM:SS and may pulse below 10 sec.
-Clock shows `+10 SEC`.
+Clock shows `SPAWNS ×0.5 · 5 SEC`.
 
 ---
 
 ## 40. Main menu
 
-Required:
-
-```text
-ЦИРКОВОЙ ПЕРЕПОЛОХ
-ИГРАТЬ
-УРОВНИ
-НАСТРОЙКИ
-ОБ ИГРЕ
-```
-
-Visual: circus tent, marquee lights, mascot clown, toy/game-show feel.
-
-`ИГРАТЬ` starts earliest unlocked incomplete level. If all complete, Level 9 is acceptable.
+Play resumes missing tutorial skills or starts a new endless run; Training explicitly repeats without erasing mastery or records. Settings and purchase restore preserved. Statistics opens a separate screen with independent best score/series/rounds/active time and Back returns to the main menu. Records are absent from the main menu; About is removed. No active run resume.
 
 ---
 
-## 41. Level select
+## 41. Tutorial entry
 
-Grid:
-
-```text
-1 2 3
-4 5 6
-7 8 9
-```
-
-States: LOCKED, UNLOCKED, COMPLETED.
-No 3-star system in MVP.
-Completed may show check mark and best score.
-Initially only Level 1 unlocked. Winning N unlocks N+1.
+Campaign LevelSelect is removed. Training is available from menu and rules from pause.
 
 ---
 
-## 42. Results
+## 42. Run results
 
-Win:
-
-```text
-УРОВЕНЬ ПРОЙДЕН!
-Очки: 620
-Лучшее комбо: x11
-```
-
-Buttons: ДАЛЬШЕ, ЕЩЁ РАЗ, МЕНЮ.
-
-Loss:
-
-```text
-НЕ ПОЛУЧИЛОСЬ!
-Очки: ...
-Цель: ...
-```
-
-Buttons: ПОВТОРИТЬ, МЕНЮ.
+Run result shows score, maximum series, fully completed rounds, active time and independent saved best score; buttons Retry and Menu. Loss and voluntary finish save records. Failed write never claims a saved record.
 
 ---
 
@@ -1103,36 +883,9 @@ Keep strings centralized for later localization.
 
 ---
 
-## 45. Save system
+## 45. Save system v2
 
-Local only.
-
-Store:
-
-```text
-highest_unlocked_level
-completed_levels
-best_scores
-best_combos
-music_enabled
-sound_enabled
-haptics_enabled
-```
-
-Defaults:
-
-```text
-highest_unlocked_level = 1
-completed_levels = []
-best_scores = {}
-best_combos = {}
-music_enabled = true
-sound_enabled = true
-haptics_enabled = true
-```
-
-Missing/corrupt save must not crash.
-Do not add nonexistent currencies/inventory.
+save_version=2, endless_rules_version=1, tutorial_version=1; learned_lessons, best_run_score, best_run_combo, best_run_rounds, best_run_active_seconds. Settings and ads_removed preserved. Original v1 bytes backed up before migration; old campaign values remain in legacy_campaign and never become endless records or mastery. Same-directory checked temporary writes, recoverable backup, unknown versions protected. Cloud merges matching-version lesson union and record maxima; cloud data cannot confer purchases. No active run serialization.
 
 ---
 
@@ -1257,19 +1010,9 @@ Keep subtle.
 
 ---
 
-## 52. Tutorial
+## 52. Persistent tutorial
 
-No long tutorial scene. Use first-time contextual hints.
-
-Level 1: `Тапни по клоуну!`
-Level 5: `ЗОЛОТОЙ КЛОУН! Успей ударить!`
-Level 6: `БОМБА! НЕ БЕЙ!`
-Level 7: `БЫСТРЫЙ!`
-Level 8 Clock: `Часы дают +10 секунд, но сбрасывают комбо.`
-Level 8 Glutton: `Ударь Обжору! Он вернёт яблоко. Если упустишь — съест жизнь.`
-Level 8 Drunk: `Не бей Пьяницу! Иначе следующий удар станет случайным.`
-
-Do not repeatedly interrupt after first teaching.
+Four tutorial rounds of 25 active seconds; cards and controlled demos stop timer/spawner. IDs: normal, misses, bomb, two, series, golden, fast, clock, glutton, endless_rules. Required actions: two Normal hits, three safe empty misses and subsequent hit reset, Bomb waiting, two different targets, three consecutive scoring hits, two Golden and two Fast, Clock five-second spawn slowdown, Glutton restore at two lives plus safe escape demonstration; final rules confirmation. Next cards and demo replacements wait for the actual character retreat and box closure; accepted hits still register immediately. Tutorial copy uses short actionable instructions. Practice never writes endless records or recovery/adaptation. Missing practice repeats, mastery saves immediately, repeat does not erase global lessons. Next is offered after current required exercises; final tutorial confirmation shows a completion modal with a good-wishes message and Start game. Start game uses the same SceneRouter.start_run entry as the main menu and starts a fresh ordinary game at round 1. All practice points, combo, bonus time, misses, completed rounds and active time reset; permanent mastery and records remain.
 
 ---
 
@@ -1286,9 +1029,10 @@ Do not repeatedly interrupt after first teaching.
 
 ## 54. Randomness and tests
 
-SpawnDirector owns a dedicated RNG.
-Production uses randomized seed; tests use fixed seed.
-Spawn sequences must be reproducible under test seed.
+RoundDirector initializes one run RNG shared with SpawnDirector and GameController.
+Production uses a randomized seed recorded in debug_plan; tests may supply that seed.
+Profiles and spawns must be reproducible with the same seed and event/timing schedule.
+Standalone controller tests may use their own RNG; cosmetic effects use separate randomness.
 
 ---
 
@@ -1306,8 +1050,8 @@ A headless test runner is required.
 ### Scoring
 
 - Normal hit: 0 → 10
-- Fast hit: 0 → 10
-- Golden hit: 0 → 10 and golden_hits +1
+- Fast hit: 0 → 20
+- Golden hit: 0 → 50 and golden_hits +1
 
 ### Combo
 
@@ -1315,7 +1059,7 @@ A headless test runner is required.
 - Normal → 2
 - Fast → 3
 - Golden → 4
-- Clock at combo 7 → 0
+- Clock at combo 7 → 7
 - empty tap at combo 4 → 0; life decreases only on the third consecutive miss
 - escaped scoring target at combo >0 → 0
 
@@ -1326,8 +1070,8 @@ A headless test runner is required.
 
 ### Clock
 
-- time 42 + Clock hit → 52, combo 0
-- after total +30 bonus, additional Clock gives no more time
+- Clock hit leaves round time and combo unchanged; new spawn countdowns advance at half speed for five active seconds
+- another Clock hit refreshes five seconds without stacking; pause freezes, new round clears
 
 ### Glutton
 
@@ -1343,26 +1087,13 @@ A headless test runner is required.
 - second tap uses requested slot normally
 - UI/Pause taps do not decrement
 
-### LevelConfig validation
+### RoundProfile validation
 
-Validate:
-
-- exactly 9 configs;
-- unique IDs;
-- duration > 0;
-- weights >= 0;
-- sum weights > 0;
-- valid max active;
-- L1 only Normal;
-- L5 Golden;
-- L6 Bomb;
-- L7 Fast;
-- L8 Clock/Glutton/Drunk;
-- L9 all seven.
+Five profiles, bounded windows/weights/intervals, seeded cycle and pattern determinism, assistance and recovery tests.
 
 ### Smoke
 
-Headless smoke should load project, MainMenu if present, Gameplay, Level 1 config, perform a deterministic interaction, and exit 0.
+Headless smoke should load project, MainMenu, Gameplay, recovery profile, perform a deterministic interaction, and exit 0.
 Parser/resource errors fail the check.
 
 ---
@@ -1402,111 +1133,13 @@ Must be hidden/disabled in release.
 
 ## 59. Implementation milestones
 
-### Phase 0 — Bootstrap
-
-Create project, folders, portrait settings, test runner, smoke test, docs.
-Acceptance: empty project runs without parser/runtime error.
-
-### Phase 1 — Core interaction
-
-3×3 board, BoxSlot, Normal, SpawnDirector, tap resolution, hammer, +10, combo.
-Acceptance: `Normal spawn → tap → hammer → +10 → combo → hide`.
-
-### Phase 2 — Session
-
-60-sec timer, 3 hammer life icons, countdown, pause, results, win/loss.
-Acceptance: Level 1 complete loop works.
-
-### Phase 3 — Characters
-
-Implement one at a time: Golden, Bomb, Fast, Clock, Glutton, Drunk. Add tests before moving on.
-
-### Phase 4 — Levels
-
-LevelConfig, nine resources, objectives, progression.
-
-### Phase 5 — Menu/UI
-
-MainMenu, LevelSelect, Settings, Pause, Results, SaveManager.
-
-### Phase 6 — Art
-
-Replace placeholders with approved assets.
-
-### Phase 7 — Polish
-
-Spring motion, squash, particles, floating score, hammer flight, combo animation, subtle shake.
-
-### Phase 8 — Audio
-
-Music, SFX, haptics, settings.
-
-### Phase 9 — Mobile QA
-
-Touch, safe areas, aspect ratios, FPS, lifecycle, Android debug export.
+Transition to endless implementation 2026-10-10 supersedes the nine-level milestones. Historical evidence is preserved in PROGRESS.md. Current work: profiles/director, continuous runtime, persistent practice, safe v2/cloud, consumer conversion, removal of campaign, acceptance checks.
 
 ---
 
-## 60. Full MVP acceptance criteria
+## 60. Full acceptance criteria
 
-### Gameplay
-
-- exactly nine BoxSlots;
-- one-finger tap;
-- responsive hammer;
-- all seven clown types work;
-- +10 scoring rules correct;
-- combo rules correct;
-- three consecutive empty hits or scoring-clown escapes remove one life;
-- Bomb hit removes life;
-- Glutton escape removes life;
-- Glutton hit restores lost life;
-- Clock adds 10 seconds;
-- Drunk redirects exactly next gameplay tap;
-- max lives 3;
-- zero lives loses.
-
-### Content
-
-- one Circus Tent world;
-- nine playable levels;
-- progression unlocks;
-- Level 9 mixes all mechanics.
-
-### UI
-
-- Main Menu;
-- Level Select;
-- gameplay HUD;
-- Pause;
-- Settings;
-- Results.
-
-### Save
-
-- progression persists;
-- settings persist;
-- best score persists;
-- best combo persists.
-
-### Technical
-
-- no parser errors;
-- no known runtime errors in normal flow;
-- headless tests pass;
-- mouse works in editor;
-- touch works on mobile;
-- portrait layout;
-- multiple aspect ratios usable;
-- Android debug build works when toolchain configured.
-
-### Scope
-
-- no coins;
-- no shop;
-- no ads;
-- no IAP;
-- no backend.
+Continuous rounds with explicit Continue including 9->10 and 999->1000; 1000-cycle bounds and seeded determinism; pause/practice isolation; three-miss/Bomb/Glutton rules, recovery; atomic migration and cloud compatibility; actual scene input/callback/soak tests; RU/EN responsive captures; optional disabled analytics. Device, hosted SDK, real provider/payment and publication require separate evidence.
 
 ---
 
@@ -1575,6 +1208,31 @@ Implementation rules:
 1. Reproduce the reference motion and phase ordering before adding extra polish.
 2. Keep the important animation parameters easy to tune through `@export`, Resources, or an equivalently simple mechanism.
 3. Spring behavior must remain deterministic animation/tweening, not physics simulation.
-4. `ANIMATION_SPEC.md` defines the motion reference. Gameplay `LevelConfig` may shorten the time a clown remains hittable/visible as difficulty increases.
+4. `ANIMATION_SPEC.md` defines the motion reference. Gameplay `RoundProfile` may shorten the time a clown remains hittable/visible as difficulty increases.
 5. Gameplay overrides must be explicit. Do not silently rewrite the reference values just to fit level balance.
 6. Final character assets must preserve the same perceived movement: spring-driven pop, overshoot, damped wobble, squash/stretch at impact, fast hammer swing, spring compression and rebound.
+
+## Current results and platform entry policy
+
+Endless results checkpoint independent records on boundary, loss and voluntary exit. Ad placement follows the Existing monetization placement policy (2026-10-11) below: eligible five-round Continue or long-run defeat Retry; New Game and training remain ad-free. Errors/cancellation/timeout continue once, stale callbacks are ignored. Payment and restore verification remain required. Analytics stay disabled; compatible level events use stable phase IDs1..5 and separate round operations.
+
+## Round-end results (2026-10-10)
+
+Every ordinary and free-practice round lasts 25 active seconds. At timeout, input and spawning stop. Existing opening, hit, retreat and lid animations finish without escape penalties. A modal shows round score, total score, best series in this round and lives remaining. Only Continue starts the next round; waiting adds no active time, ads or penalties. State and independent records carry over. Practice Continue advances mastered rounds or repeats incomplete practice. Animation callbacks and Continue are generation guarded.
+
+## Scoring and tutorial transition update (2026-10-10)
+
+Fast availability after the approved 50% speed reduction: recovery .700, build .675, variation .625, pressure .600, peak .550 seconds; tutorial profile .700, controlled Fast demo 2.50 seconds. Animation motion is unchanged. Ordinary end-of-round results never end the game. The defeat modal requires zero lives and the current run generation; menu/restart do not produce a delayed defeat modal. Training HUD and results label stages separately from ordinary rounds.
+
+## Player terminology
+
+Every player-facing RU/EN mention uses hammers / молотки: three hammers, lose or restore a hammer, hammers remaining and hammers exhausted. Internal life/lives save fields, signals and method names retain their existing contracts.
+
+
+## Existing monetization placement policy (2026-10-11)
+
+- Ordinary rounds remain 25 seconds. Interstitials may be requested on Continue after each five completed rounds, or Retry after a lost ordinary run lasting at least 120 active seconds. New Game, onboarding, practice and first ordinary start after training do not request an interstitial.
+- One shared session interval requires 120 active seconds of ordinary play since the last provider-confirmed show. Countdown, animations after timeout, pause, results, training and advertisements contribute no time. A new app session starts the interval from zero. Failed requests do not count as shows and have a 60-second wall-clock retry backoff.
+- One pending request/continuation; errors and unavailable inventory continue once. A missing callback before opening has a 30-second watchdog; an opened advertisement waits for the provider close callback. Platform resume precedes a new round.
+- User-approved banner placement: ordinary gameplay RUNNING only. No banners in menus, results, countdown, pause or training. Async loads must not reopen a banner after leaving gameplay.
+- Existing durable remove_ads suppresses both formats, preserves purchase/restore behavior and SDK catalog metadata. No rewarded continuation, paid hammers, new products, analytics activation, SDK updates or deployment are included.

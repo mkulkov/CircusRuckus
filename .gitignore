@@ -1,5 +1,6 @@
 # Godot-generated cache and imported resources
 /.godot/
+/.analytics-backups/
 
 # Build outputs
 /builds/*

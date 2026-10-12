@@ -33,5 +33,11 @@ func can_strike() -> bool:
 	return now_seconds - _last_strike_time >= debounce_seconds
 
 
+func clear_strikes() -> void:
+	_last_strike_time = -10.0
+	for hammer in get_children():
+		hammer.queue_free()
+
+
 func _on_hammer_impact(slot_index: int) -> void:
 	impact.emit(slot_index)

@@ -1,0 +1,15 @@
+{
+  "destinations": {
+    "VERSION": "addons/game_analytics/VERSION",
+    "default_config.cfg": "addons/game_analytics/default_config.cfg",
+    "game_analytics.gd": "addons/game_analytics/game_analytics.gd",
+    "optional_analytics.gd": "app/analytics/optional_analytics.gd"
+  },
+  "files": {
+    "VERSION": "efdfae9d0dc9b09f9524df6c401bf7143a882469c6243bfbcb0bbeaefe9aa3c1",
+    "default_config.cfg": "87ed2b7ac4711585939ef16c0471e6d3846e44d8817d32096f79dc54040bd23d",
+    "game_analytics.gd": "f259642bbec9c0823069d12de5718176ab21bc7eebb5745bfc5fce0b8721f0d5",
+    "optional_analytics.gd": "c66793a50e5406ac085c1f6f22869e0e03fa99d1fa653630dd3b07efceac83d9"
+  },
+  "version": "2.0.0"
+}

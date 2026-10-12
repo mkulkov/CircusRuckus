@@ -11,9 +11,13 @@ var _floating_labels: Array[Dictionary] = []
 var _confetti: Array[Dictionary] = []
 var _bomb_flashes: Array[Dictionary] = []
 var _rng := RandomNumberGenerator.new()
+var _message_font: FontVariation
 
 
 func _ready() -> void:
+	_message_font = FontVariation.new()
+	_message_font.base_font = ThemeDB.fallback_font
+	_message_font.variation_embolden = 0.8
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_rng.randomize()
@@ -71,7 +75,7 @@ func _local_from_global(global_position: Vector2) -> Vector2:
 
 
 func _draw() -> void:
-	var font := ThemeDB.fallback_font
+	var font: Font = _message_font
 	for flash in _bomb_flashes:
 		var progress := clampf(float(flash["elapsed"]) / BOMB_FLASH_DURATION, 0.0, 1.0)
 		var center := Vector2(flash["position"])
@@ -87,8 +91,7 @@ func _draw() -> void:
 		var text_width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
 		var baseline := position + Vector2(-text_width * 0.5, 0.0)
 		draw_string(font, baseline + Vector2(3.0, 5.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.13, 0.05, 0.12, alpha * 0.78))
-		for offset in [Vector2(-2, 0), Vector2(2, 0), Vector2(0, -2), Vector2(0, 2)]:
-			draw_string(font, baseline + offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(CircusUIStyle.INK, alpha))
+		draw_string_outline(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, 7, Color(CircusUIStyle.INK, alpha))
 		draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(label["color"], alpha))
 	for particle in _confetti:
 		var progress := clampf(float(particle["elapsed"]) / CONFETTI_DURATION, 0.0, 1.0)

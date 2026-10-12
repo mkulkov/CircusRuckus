@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/gameplay/box_slot.gd" id="1_slot"]
-[ext_resource type="PackedScene" path="res://scenes/characters/NormalClown.tscn" id="2_clown"]
+[ext_resource type="PackedScene" path="res://scenes/characters/ClownBase.tscn" id="2_clown"]
 [ext_resource type="Script" path="res://scripts/gameplay/box_front.gd" id="3_front"]
 
 [node name="BoxSlot" type="Control"]

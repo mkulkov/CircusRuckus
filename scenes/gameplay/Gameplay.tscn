@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/gameplay/gameplay.gd" id="1_gameplay"]
 [ext_resource type="Script" path="res://scripts/ui/gameplay_background.gd" id="2_background"]
@@ -9,6 +9,8 @@
 [ext_resource type="Script" path="res://scripts/ui/gameplay_hud.gd" id="7_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/SessionOverlay.tscn" id="8_overlay"]
 [ext_resource type="Script" path="res://scripts/save/save_manager.gd" id="9_save"]
+
+[ext_resource type="Script" path="res://scripts/gameplay/round_director.gd" id="10_round"]
 
 [node name="Gameplay" type="Control"]
 layout_mode = 3
@@ -70,3 +72,6 @@ script = ExtResource("6_game")
 script = ExtResource("9_save")
 
 [node name="SessionOverlay" parent="." instance=ExtResource("8_overlay")]
+
+[node name="RoundDirector" type="Node" parent="."]
+script = ExtResource("10_round")

@@ -1,5 +1,124 @@
 # PROGRESS.md — Цирковой переполох
 
+
+## 2026-10-12 — Релизные кандидаты VK и ОК
+
+- Добавлен production-пресет `Web - OK Mini Apps` с VK Bridge, SDK-объявлениями и общим release shell. `tools/export.ps1` включает аналитику v2 только на время релизного экспорта VK/ОК, подставляет платформу и версию из плана сборки и восстанавливает исходный файл конфигурации; обычный проект остаётся `mode="disabled"`.
+- Проверен через SSH установленный серверный контракт v2 и подтверждён game_id ClownSmash с продуктом remove_ads; повторная регистрация идемпотентна. Сам сервер не менялся, тестовые/синтетические события не отправлялись. Доставка аналитики из реального контейнера не проверена.
+- Собраны: VK 1.0.6 (code 7), `builds/release/vk/ru_mkulkov_circusruckus_1_0_6.zip`, SHA-256 `93D1D02B8E34E673A11F87C77B0BDF93AF0721724E16B5BB27F0B8D49368FEF6`; ОК 1.0.7 (code 8), `builds/release/ok/ru_mkulkov_circusruckus_1_0_7.zip`, SHA-256 `01300FDB3BE97EFBFFE4936E11997A8C94BAA04F55F7A0428A296F059A6A7924`.
+- PASS: Godot full runner и smoke, analytics fail-open после исправления устаревших ожиданий integration-теста, VK/OK bridge tests, 18 payment/server tests, VK Prod ValidateOnly (9/9 файлов, загрузка не запускалась). Реальное заполнение рекламного инвентаря, события из платформенного контейнера, UI кабинета и публикация не подтверждены.
+- Выпуск на VK Prod ожидает отдельного подтверждения пользователя непосредственно перед загрузкой. GitHub main пока не обновлён.
+
+
+## 2026-10-12 — Удалено окно недоступности рекламы
+
+- Удалены окно с сообщением о возможном блокировщике/сбое сети, его маршруты открытия и связанные UI-проверки. Покупка remove_ads и обработка доступности рекламы в адаптерах сохранены; при недоступной или не показавшейся рекламе игровой переход продолжается.
+- Автоматические тесты не запускались.
+
+
+## 2026-10-11 — Монетизация бесконечных циклов
+
+- Interstitial: по Continue после 5/10/15… раунда либо Retry проигранной партии >=120 активных секунд. New Game, обучение и старт после обучения без запроса. Общий интервал 120 активных секунд обычной игры переносится между партиями в сессии, сбрасывается только подтверждённым показом; countdown/паузы/результаты/обучение не учитываются. После ошибок backoff 60 с, timeout до открытия 30 с; одно продолжение при повторах, отмене и поздних callback, ожидание platform resume.
+- По последнему уточнению пользователя баннер **только в RUNNING обычной игры**, отсутствует в меню, результатах, паузе, countdown и обучении. Web show/hide упорядочены; Android отменяет banner load при скрытии. Покупка/restore remove_ads сохраняют эффект. Новых товаров/rewarded/платных молотков нет; аналитика disabled, баланс и анимации не менялись.
+- PASS: import без диагностик; полный tests/run_tests.gd; tests/monetization_policy_test.gd (реальные 5 раундов и маршруты New Game/Retry, интервалы/баннеры/ошибки/timeout/cancel/restore/platform resume); tests/round_results_test.gd; node tests/vk_bridge_test.mjs (VK/Yandex banner race и wasShown:false). Логи builds/debug/verification/monetization-policy; сохранения изолированы, существующие изменения пользователя сохранены.
+- Обновлены SPEC.md, docs/monetization.md; детали и полный платформенный чек-лист docs/MONETIZATION_POLICY_REPORT.md. Справочники навыка 2026-10-07, SDK/API/цены/кабинеты/сервер не менялись. Реальные Android/Web показы, safe-area баннера, sandbox-покупки/restore, размещённые сборки и кабинеты НЕ ПРОВЕРЕНЫ; экспорт/публикация/деплой/платежи не выполнялись.
+
+
+## 2026-10-10 — Раунд 25 секунд и завершение обучения
+
+- Базовая длительность 25 с, Clock +10 до +30, итоговый максимум 55 с. Fast ещё вдвое короче: .350/.3375/.3125/.300/.275 с, контролируемая учебная демонстрация 1.25 с; движение анимации не менялось.
+- После освоения всех правил показывается «Обучение завершено», «Ты готов! Весёлой игры!» и «Начать игру». До кнопки таймер, спавн и ввод остановлены. Кнопка вызывает тот же SceneRouter.start_run, что главное меню; новая обычная игра с раунда 1 и нулевыми учебными очками/бонусами. Повторное нажатие защищено.
+- PASS: импорт, полный runner, tutorial_resume (уведомление, ожидание, одно нажатие и полный сброс), targeted training_start_route (тот же router, новая сцена, снятие паузы), round_results, loop regression и fairness 32 033. GPU-окно RU 720×1280 проверено. Сохранения изолированы. Предыдущие строки описывают исторические параметры; человеческий баланс ещё более короткого Fast не проверен.
+
+
+## 2026-10-10 — Очки персонажей и переход из обучения
+
+- «Бесконечная партия» заменена на «Игра» в RU/EN. Normal +10, Fast +20, Golden +50; combo +1 без множителя. Всплывающие очки и учебные тексты соответствуют результату.
+- Время Fast во всех ресурсах уменьшено ровно вдвое, нижний предел .55 с; учебная контролируемая демонстрация 2.5 вместо 5 с. Вылет, удар и уход персонажа не перенастраивались.
+- Последнее подтверждение обучения сразу запускает обычную игру с раунда 1, нулевыми очками/серией/бонусами/промахами/завершёнными раундами/активным временем и тремя жизнями. Постоянное освоение и рекорды сохраняются; HUD и результаты обучения обозначают отдельные этапы.
+- Окно поражения защищено состоянием, причиной завершения и поколением игры. Только ноль жизней показывает «Молотки закончились»; выход/перезапуск и старый callback не показывают завершение новой игры. Конкретное пользовательское сообщение после второго раунда без журнала не доказывает прежнюю причину.
+- Все пользовательские тексты RU/EN используют «молотки» вместо «жизней»: HUD, подсказки, правила, обучение, результаты и предупреждения. Внутренние имена API/полей сохранены.
+- PASS: импорт, полный runner, оба tutorial теста (немедленный старт с раунда 1 и полный сброс), round_results (ожидание/продолжение/старые callbacks/выход), fairness 32 033. GPU-карточка «Игра» RU 720×1280 проверена. Старых пользовательских упоминаний жизней в локализации нет; тестовые сохранения изолированы. Человеческий баланс новых очков и короткого Fast не проверялся.
+
+
+## 2026-10-10 — Раунд 30 секунд и результаты по кнопке
+
+- База обычных и учебных раундов — 30 секунд; Clock +10, максимум +30, итого до 60. Значения по умолчанию, валидация, HUD, RU/EN, SPEC/AGENTS и тестовые ожидания согласованы.
+- На таймере спавн и ввод останавливаются. Существующие персонажи завершают вылет/удар/уход и закрытие коробки без штрафов. Затем окно показывает очки раунда, общие очки, лучшую серию и жизни. Только «Продолжить» запускает следующий раунд; состояние сохраняется, ожидание не расходует активное время и не вызывает рекламу.
+- Предыдущие отчёты и результаты балансировки ниже относятся к прежней длительности и автоматическому переходу; новый баланс ещё не подтверждён человеческой игрой. PASS: импорт без диагностик, полный runner, loop regression, targeted round_results, fairness (32 033), endless runtime (21 131), tutorial resume, 50 раундов реальной сцены (пик 66 nodes / 6 tweens), три раунда обычной скорости (90 активных секунд). Окно RU 720×1280 проверено через GPU-снимок. Проверки используют изолированные сохранения; реальные устройства и человеческий баланс не проверялись.
+
+
+## 2026-10-10 — Понятное объяснение бесконечной партии
+
+- Финальная подсказка RU/EN объясняет конец партии при потере жизней и раунд «Отдых» каждые пять раундов. Вместо неопределённого «цикла» указано восстановление одной жизни в этом раунде и перечислены подходящие клоуны. Игровые правила не менялись.
+
+## 2026-10-10 — Подсказки после анимации
+
+- Исправлено обрывание учебного удара/ухода клоуна: следующая карточка, повтор цели и переход к пустым ударам ждут завершения настоящего цикла коробки. Освоение сохраняется сразу; старое ожидание отменяется поколением при выходе/перезапуске. Таймер практики остаётся замороженным.
+- Тексты подсказок RU/EN сокращены до простых действий и ближайшего правила. Обжора описан в фактическом порядке: сначала уход, затем возврат жизни. Кнопка продолжения практики — «Дальше».
+- PASS: импорт без диагностик, tutorial_mastery_test и tutorial_resume_test на реальной сцене. Проверено отсутствие карточки до завершения удара/ухода, удлинённый hide 1.60 с, немедленная запись освоения и отмена ожидания при выходе. GPU-карточка RU 720×1280 проверена визуально. Сохранения тестовые; анимационные параметры продукта не менялись.
+
+
+## 2026-10-10 — Обучение и бесконечная партия
+
+- Реализовано принятое задание: четыре практических раунда и десять сохраняемых правил; бесконечные прежней длительности раунды с переносом состояния, пять повторяющихся фаз с потолком, четыре паттерна, ограниченная EMA-адаптация, справедливый спавн и восстановление одной жизни за двадцать безошибочных попаданий в recovery один раз за цикл. Drunk отключён; аналитика disabled.
+- Save v2: безопасная миграция с исходной v1-копией, legacy_campaign, четыре независимых рекорда, отказоустойчивая запись и облачное объединение. Сервер v1/v2 подготовлен и проверен локально. Меню/HUD/результаты и RU/EN переведены; кампания удалена после переключения потребителей и архивирования исходных файлов.
+- PASS: импорт, полный runner, smoke/loop/ad entry, оба tutorial теста, save v2 (48), fairness (32 033), endless runtime (21 129), 50 раундов реальной сцены без роста ресурсов, три границы раундов обычной desktop-скорости, 21 Node bridge/server test, 167 application fail-open analytics checks. Все записи тестовые и изолированные.
+- Баланс: 600 модельных траекторий до 30 минут, шесть стилей, 100 seed; нарушений 0, ideal 100/100 на горизонте, novice медиана 577.98 с. Предложенные параметры не корректировались. Это автоматическая модель, не человеческое подтверждение баланса.
+- GPU: 48 снимков RU/EN на четырёх portrait-размерах и дополнительная длинная вступительная карточка 720×1280. Сохранены действующие анимации, ввод, assets, звук и платформенные адаптеры; предсуществующие пользовательские изменения не отменены.
+- Осталось: реальные игроки, физический touch/Android, платформенные контейнеры, реальные SDK/provider и обновлённый hosted cloud round-trip. Экспорты/публикация/деплой/кабинеты/платежи не выполнялись.
+- Подробности, файлы и пределы доказательств: docs/ENDLESS_IMPLEMENTATION_REPORT.md; параметры и модель: docs/ENDLESS_BALANCE_REPORT.md. Записи ниже исторические и описывают прежнюю кампанию.
+
+
+## 2026-10-09 — Раунд прежней длительности раунда
+
+- По запросу пользователя базовая длительность всех девяти уровней снижена до прежней длительности раунда, включая LevelConfig default и воспроизводящий генератор.
+- Для сохранения достигнутого мягкого баланса цели очков уменьшены пропорционально времени с округлением вверх до десятка: 80/110/170/210/240/270/320/360/420. Темп, окна, специальные цели и +10 за попадание сохранены.
+- Clock по-прежнему даёт +10 с, максимум +30 с; максимальный раунд с бонусами теперь 75 секунд. SPEC/AGENTS и тесты согласованы.
+- Модельный отчёт предыдущей балансировки относится к 60-секундным раундам; VK debug не пересобирался. Проверки этой правки: полный runner и реальная headless-сцена второго уровня.
+- Реальная сцена L2 seed=42 на новом таймере: 170/110 очков, цель за 28.12 с, три жизни, победа; full runner PASS. Пользовательские сохранения не сбрасывались.
+
+## 2026-10-09 — Смягчение сложности после игры на ПК
+
+- Пользователь сообщил, что на втором уровне не хватает очков. Цель L2 снижена с 220 до 140, окно Normal увеличено с 1.05 до 2.20 с, вес Bomb снижен с 15% до 8%; ранние уровни не ускоряются к концу минуты.
+- Перенастроены все девять ресурсов и воспроизводящий `tools/tune-loop.py`: цели 100/140/220/280/320/360/420/480/550, плавно сокращающиеся окна 2.40–1.50 с, более спокойные интервалы и двойные появления. Правила +10, жизней, таймера, серии, обучения и специальные цели сохранены.
+- Модель теперь меняет задержку распознавания/перемещения мыши между целями и содержит cautious-профиль (база 0.95 с, вариация 0.65–1.55×, 8% пропусков). На старых параметрах L2 проходился в 8/100 сценариев; старые агрегаты сохранены в `docs/balance_before_desktop_retune.json`.
+- Реальная headless-сцена L2 seed=42, настоящие tweens/таймер, реакция 0.95–1.35 с: 270/140 очков, цель достигнута за 29.96 с, 3 жизни, победа. Проверка использует отдельный disposable save.
+- Import и полный runner прошли, актуальные модельные итоги — `docs/BALANCE_REPORT.md`. Это автоматические сценарии, не доказательство комфорта реальных игроков.
+- Старый VK debug-архив из предыдущей записи относится к прежнему балансу. В этом задании изменены исходники для запуска на ПК; новая публикация/загрузка не выполнялась.
+
+## 2026-10-09 — Согласованный игровой цикл и локальный VK debug
+
+- Выполнен целевой вариант `docs/ClownSmash_Codex_Implementation_Instructions.md`: результат принятого тапа фиксируется сразу; молоток завершает визуальную часть без повторного начисления. Окно доступности начинается при читаемой голове, старые callbacks защищены поколением попытки/слота.
+- Девять уровней вводят Bomb, две цели, серию, Golden, Fast и бонусы постепенно. Drunk выключен до человеческой проверки понятности/баланса. Clock/Glutton сохраняют серию; побег Glutton отнимает жизнь и сбрасывает серию/промахи. Очки остаются +10 без множителя.
+- Добавлены безопасное практическое обучение, повтор правил из паузы, HUD целей/промахов и результаты с причинами/следующим шагом/историческими рекордами. Старые сохранения не мигрируют и не очищаются.
+- Первый VK-уровень не ждёт рекламу; ошибки, отмена и timeout следующих рекламных входов продолжают игру один раз. Проверка платёжных прав сохранена.
+- Full runner, loop regression, smoke, import/main, VK/Yandex bridge и 14 локальных payment-server tests прошли. Изолированная проверка аналитики: 157 passed, 0 failed.
+- Баланс: 4518 ускоренных прогонов, идеальный/уверенный профили 900/900, новичок 858/900; idle/random 0/900. Это модель, не пользовательская статистика. Подробности: `docs/BALANCE_REPORT.md`.
+- Визуально проверены русский/английский HUD, обучение и результаты при мобильных размерах; локальный Chrome Web runtime проверен отдельно. Debug VK: `builds/debug/vk/package/dev.zip`, девять корневых runtime-файлов; версия 1.0.5/code 6 не повышалась.
+- Пользовательский save и его резервная копия имеют одинаковый SHA256. Предсуществующие изменения сохранены. Никакой загрузки/публикации/модерации и внешних изменений не выполнялось.
+- Ограничения: текущая сборка не проверена в реальном VK, на физическом устройстве и реальными пользователями; платёжный sandbox, реклама и кабинет требуют отдельной проверки. Итог: `docs/LOOP_IMPLEMENTATION_REPORT.md`.
+
+## 2026-10-06 — Общая Android-подпись
+
+- Android release entrypoints use the shared signing kit in `C:\dev\Godot\tools\android-signing` through `Start-GodotBuild`; debug stays on debug signing. The Alpha exporter delegates signing setup and cleanup to the shared transaction. Release passwords are read locally, passed only through the exporter environment, and not added to project files/logs.
+- Verified PowerShell syntax, 29 build-policy regression assertions, and 20 signing-policy assertions including success/failure cleanup and unchanged debug environment. The shared keystore/alias certificate matches the shared public DER certificate. No actual product APK/AAB or platform upload was produced.
+
+## 2026-10-06 — Общие правила экспорта
+
+- Экспорт переведён на общую библиотеку `C:\dev\Godot\tools\godot-build-policy.ps1`: `builds/release/<platform>` и `builds/debug/<platform>`, имена package/version, последовательное увеличение версии и version code, журнал SHA-256 и сохранение номера в `config/build-version.json`.
+- Добавлен `tools/export.ps1` с `-Release` и безопасным `-Plan`. RuStore Alpha сохраняет отдельную подготовку подписи; отсутствующий Alpha-пресет не подменяется другим. VK deploy выбирает debug для Dev и проверенный релиз из manifest для Prod.
+- Проверены синтаксис PowerShell и планы назначения. Общая библиотека проверена сценариями успеха, ошибки, повторного запуска, блокировки и истории версий на отдельном тестовом проекте. Реальный релиз этого проекта, подписание и загрузка на площадки в рамках этой задачи не выполнялись.
+
+## 2026-10-06 — Web-релизы VK Mini Apps и Яндекс Игр 1.0.5
+
+- Собраны релизные экспорты Godot 4.7.2 в `builds/release/vk/` и `builds/release/yandex/`; ZIP-файлы: `ru_mkulkov_circusruckus_1_0_5.zip`.
+- Каждый ZIP содержит ровно 9 файлов с `index.html` в корне. Распакованный размер: VK 60 729 297 байт, Яндекс 60 729 240 байт (меньше текущего лимита Яндекса 100 МБ); SHA-256: VK `2CD8FA1D5482C41DCEC0B41580391CDD08E7220681DF293E2B6B0A6B00BDA08F`, Яндекс `BECC12EF6C3EF79FFD0F63C4360E3DEC2BF47529B37F046D32DFB5B3E68FCF33`.
+- Версия проекта обновлена до `1.0.5`; production Android preset синхронизирован (`versionName=1.0.5`, `versionCode=6`). Оба артефакта записаны в `builds/release/manifest.json`.
+- Импорт Godot и полный `tests/run_tests.gd`, `tests/smoke_test.gd`, VK/Yandex bridge tests и `Deploy-VK.ps1 -ValidateOnly` прошли. Текущая официальная инструкция Яндекса проверена 2026-10-06: `index.html` в корне и размер архива до 100 МБ.
+- Godot export CLI вывел предупреждение о недоступном пользовательском `editor_settings-4.7.tres`, но оба экспорта завершились с кодом 0; повторный импорт завершился без диагностик.
+- Только локальная сборка: в VK/Yandex кабинеты не загружалась, размещённый запуск и публикация не проверялись. Официальная документация VK не открылась при проверке, поэтому актуальные требования кабинета и хостинга для этой сборки остаются непроверенными.
+
 ## 2026-10-06 — Подписанный RuStore AAB 1.0.4
 
 - Android - RuStore Release Ads поднят до versionName `1.0.4` / versionCode `5`; создан `builds/clown-smash-rustore-1.0.4-release.aab` (56 681 614 байт).
@@ -922,3 +1041,144 @@ Planned:
 - Full project tests passed. Both Godot exports reported DONE and created valid signed artifacts but lingered afterward; their specific export processes were terminated after completion. Restored the AAB export format after temporary APK export.
 - Deleted three older/generated Android packages within this project after successful installation; only the new release AAB/APK remain. Deletion manifest and new SHA-256 hashes are in verification/android_release_2026-10-03.
 - No store upload performed. This verifies packaging/install/startup, not physical haptic feel, complete gameplay/audio QA, or live purchases/ads.
+
+### 2026-10-07 — Project cleanup and redundant scene removal
+
+- Replaced BoxSlot's empty NormalClown inherited-scene wrapper with a direct ClownBase instance; retained the CharacterLayer/Clown node path and all visual/gameplay properties. Removed NormalClown.tscn.
+- Removed the unused CharacterTypes class and UID after checking class-name, method, path and UID references. Removed stale reference-image import metadata from the .gdignore-protected reference directory; retained the reference PNG used by visual documentation/tools.
+- Audited runtime/test references, class_name consumers and dynamic level/texture paths. All remaining game textures, audio/video, nine level resources and scenes are used; retained debug monetization resources and platform adapters.
+- Moved 59 old browser trace files (393190 bytes) and 19 empty scaffold directories out of the project to C:/dev/Godot/cleanup-backups/ClownSmash-traces-0663e88c72e840bf997f023b18f5074a. Files remain recoverable. Preserved release artifacts, version metadata, signing files, promo sources and QA evidence. Existing uncommitted build configuration changes were preserved.
+- Validation: Godot 4.7.2 import passed with zero diagnostics; full tests/run_tests.gd passed; smoke_test.gd passed (main, splash, menu, gameplay, level resource and deterministic interaction); git diff --check passed. Wrapper diagnostics matched only successful negative-test descriptions, not engine errors. No device, visual or export checks performed.
+
+### 2026-10-08 — Project-owned optional analytics 1.0.1
+
+- Applied the global godot-game-analytics skill only to ClownSmash. Installed the checksum-verified reference into addons/game_analytics and registered the GameAnalytics Autoload; preserved installer backups and existing unrelated changes. Configuration remains disabled, consent false by default, game_version 1.0.5; registered collector game_id and export platform were not supplied.
+- Added deferred optional hooks for level start/win/loss/retry, existing contextual hints, accepted interstitial/purchase requests, SDK failures, and Yandex SDK-confirmed ad opening. Random operation keys deduplicate repeated callbacks. Gameplay, save, entitlement and existing ad gates remain authoritative.
+- All 18 producer statuses and privacy/semantic limits are documented in docs/GAME_ANALYTICS.md. Ad completion and purchase completion remain Unverified: existing callbacks lack viewing-completion and confirmed transaction/amount/currency evidence. No fake tutorial completion, player hint request or difficulty selection was added. Production delivery and opt-in UI are not enabled.
+- Bundled isolated validation passed: 10 installer tests, 82 runtime checks, 22 fail-open checks and offline restart checks. Actual application entrypoint acceptance passed 210 checks across 20 disabled/debug/consent/network/HTTP/queue/storage scenarios, using isolated test saves and local provider callback stubs. Full project tests, import, main and smoke passed; repeated installer audit proposed zero changes; diff whitespace check passed.
+- No external collector request, dashboard verification, hosted browser/device analytics, real payment or completed ad-viewing verification performed. Local stubs prove callback/fulfilment isolation only. No release export/publication was performed.
+
+- 2026-10-09: analytics1.0.1 migrated to optional minimal2.0.0 with strict schema, independent bridge, shared project ID, no consent/identity APIs. Normal config disabled; actual game headless fail-open and real HTTPS/retry checks passed. See docs/GAME_ANALYTICS.md and Codex migration evidence.
+
+### 2026-10-09 — Approved gameplay visual redesign
+
+- Integrated the approved circus sketch as a visual direction using new isolated gameplay stage, transparent wooden tile and navy/brass HUD plate textures. Existing menus, character/box artwork, animation, game rules and input routing retained. Background tiles track live slot coordinates including web layout offsets; live HUD score now includes a visual target-progress line.
+- Preserved required Series without multiplier, miss counter, Golden goals, timer and three hammer lives. Added deterministic `redesign` screenshot mode (Level 8, Clock in middle slot, score 30, series 3); this is a visual fixture, not gameplay acceptance evidence.
+- Generated art through built-in image_gen; asset paths, prompts and implementation limits recorded in docs/GAMEPLAY_VISUAL_REDESIGN.md. Approved reference saved under assets/references/gameplay_redesign_2026-10-09.png.
+- Verification: Godot 4.7.2 import passed with zero diagnostics; full run_tests.gd TEST RESULT: PASS (wrapper diagnostic matches were successful negative-test descriptions); smoke_test.gd SMOKE RESULT: PASS. Compatibility/OpenGL runtime captures produced at 720x1280, 1080x1920, 1080x2340 and 1440x3200 under verification/redesign_2026-10-09_*.png. Changed-file whitespace check passed.
+- Reference checked: YES. Screenshot compared: YES, visual comparison rather than pixel equality. Reference deviations: existing box/clown sizes and animation kept; Series/goal indicators reflect current SPEC rather than sketch; timer uses matching navy plate; HUD plate corner proportions vary with panel dimensions; no new Clock halo. Device safe-area/cutout and hosted web QA remain unverified. No export, deployment or publication.
+
+### 2026-10-09 — HUD alignment and arena grounding correction
+
+- Raised native HUD offset from 112 to 28 design pixels; aligned Level/Timer/Lives to equal 288x104 plates, Score/Series to equal 488x104 plates. Combined misses, best series requirement and Golden progress in one 1000x80 goal plate. Three-slice artwork retains round corners and rivets. Long warning/objective text fits instead of clipping.
+- Repositioned all nine live slots to three rows inside the stage, with gentler 0.88/0.92/0.96 depth scale; matched web/native board geometry to the same arena artwork. Enlarged and lowered tile artwork relative to box bases, retained gaps and moved bottom row above the lit rim. Input/hammer coordinates continue to derive from actual slot transforms; no animation or game rules changed.
+- Validation: import zero diagnostics; full run_tests.gd PASS; smoke_test.gd PASS; changed-file whitespace check PASS. OpenGL captures at 720x1280, 1080x1920, 1080x2340, 1440x3200, plus Level 9 long HUD status state under verification/layout_v2_*.png.
+- Additional loop_regression.gd: 28 checks passed, one unrelated Clock progression assertion failed. Fixture starts controller at 60 seconds but SpawnDirector retains a previous Level 1 duration and the assertion expects a different progression ratio. Left unrelated fixture/game tuning unchanged; input/head/box mapping checks passed.
+- Reference checked: YES. Screenshot compared: YES (visual review). Deviations: current Series/goals from SPEC retained, existing clown animation retained. Physical phone cutout/safe-area and hosted browser validation not performed.
+
+### 2026-10-09 — Readable circus notification signs
+
+- Replaced floating HUD feedback/goals/confusion text with brass-framed circus signs, gold side stars and bold cream/color typography with continuous dark outline. Life-loss notifications use crimson inserts. Long sentences wrap at word boundaries. Feedback lifetime increased from 1.05 to 1.6 seconds for reading.
+- One notification area above the playfield prioritizes transient feedback, then confusion status, then achieved-goal guidance, preventing stacked signs from covering top-row clown heads. Persistent status reappears after transient feedback expires; gameplay state and rule text remain unchanged.
+- Floating score/miss/bonus captions use the same bold font variation and stronger continuous outline. No external fonts or dependencies added. Added visual fixture modes feedback_warning and hud_goals and localized the status fixture caption.
+- Validation: Godot import zero diagnostics, full run_tests.gd PASS, smoke_test.gd PASS, changed-file whitespace check PASS. OpenGL screenshots reviewed for warning at 1080x1920 and 720x1280, long goals, confusion and impact bonus captions under verification/circus_messages_*.png. Physical-device proof not obtained.
+- Reference checked: YES (existing approved circus UI). Screenshot compared: YES. Reference deviations: notification signs extend approved HUD art; no new gameplay effects or rule changes.
+
+### 2026-10-09 — HUD icon inset correction
+
+- Moved clock center inward (512), reduced dial radius to 30, and adjusted timer text bounds. Life hammer centers now 820/900/980 with 72px textures; restore flight targets use the same centers. Icons no longer touch plate edges in the reviewed 720x1280 OpenGL screenshot verification/hud_icon_insets_720x1280.png.
+- Validation: import passed with zero diagnostics; runtime capture and changed-file whitespace check passed. No gameplay logic changed; full suite was not repeated for this local visual adjustment.
+
+### 2026-10-09 — Timer/Level HUD order
+
+- Swapped whole Timer and Level plates, retaining dimensions and internal icon/text insets. Top row order is Pause, Timer, Level, Lives.
+- Validation: import zero diagnostics; fresh OpenGL capture verification/hud_timer_level_swap_720x1280.png; changed-file whitespace check passed. Pure layout change, no gameplay rules modified.
+
+### 2026-10-09 — Empty tutorial practice recovery
+
+- Continue now clears obsolete board lifecycles and spawns fresh practice targets for the current lesson, rather than only extending the old occupant's timer. An absent recorded target falls back to center slot; initial target selection excludes HIT/HIDING/COOLDOWN slots. Two-target lessons keep distinct slots and Bomb still completes through safe waiting. Tutorial time freeze and actual-action completion rules retained.
+- Added tests/tutorial_resume_test.gd: natural first-level countdown/spawn, five-second card delay, explicitly removed old target, repeated missed practice without life penalty, actual hit and resumed timer/spawn, second presentation with missing slot, two-target lesson and safe Bomb wait. This models the reported empty-field dead end; the exact interactive event that removed the user's original target was not logged.
+- Validation: import zero diagnostics; focused tutorial regression PASS, full run_tests.gd PASS, smoke_test.gd PASS, changed-file whitespace check PASS. No save schema, animation or scoring/life rules changed.
+
+### 2026-10-09 — Lightweight compact HUD
+
+- Replaced ornate brass HUD panels with translucent navy surfaces and thin 2px gold outlines; removed bevels/rivets and heavy text shadows. Kept cream/gold color accents, clock, star, three hammer lives and notification stars. Original artwork retained as reference.
+- Reduced top panels to 88px, score/series to 72px, objectives to 50px; static HUD span reduced from 324 to 238 design pixels (~27%). Smaller pause artwork retains its existing generous input area. Clock, life icons and matching restore flight targets fit compact panels. Notification area moved up to follow the shorter HUD.
+- Validation: import zero diagnostics, smoke_test.gd PASS, changed-file whitespace check PASS. OpenGL visual checks: 720x1280, 1440x3200, RU long goals/warnings and EN status under verification/hud_light_*.png. Pure presentation change; full gameplay suite not repeated. Physical device/cutout and hosted web QA unverified.
+- Reference checked: YES. Screenshot compared: YES. Reference deviations: user explicitly superseded heavy sketch HUD styling with the lighter compact treatment.
+
+### 2026-10-09 — Brighter HUD surfaces
+- Switched compact HUD plates and pause button to warm cream with brown text; red/green objective emphasis retained. Feedback banners retain contrasting circus colors.
+- Validation: import passed with zero diagnostics; OpenGL runtime capture verification/hud_cream_720x1280.png checked for readability. Gameplay unchanged.
+
+### 2026-10-09 — Approved ticket atlas connected
+- HUD draws regions from assets/ui/tickets/hud_tickets_ru_v1.png unchanged; baked captions, clock, stars and pause are no longer redrawn for Russian. Only numbers, progress fill and animated life hammers are runtime overlays.
+- Current series and best-attempt required series remain separate; misses retain red 2/3 emphasis. Existing pause input and life animation are preserved, including restore target alignment. Message banners have clearance below objective tickets.
+- Russian printed artwork is used for Russian locales; other locales retain translated procedural HUD values and captions, with the same atlas pause button.
+- Validation: Godot import zero diagnostics; smoke_test.gd PASS; runtime OpenGL captures at 720x1280 and 1080x1920 Russian, plus 1440x3200 English reviewed. PNG SHA256 before/after identical: 7F06B1D19FB9318FE5430E2A22E2D7C1C7D3C70959C7DBCE94FEE4BA08257D67. Reference checked YES; rendered comparison YES. Physical device not checked.
+
+### 2026-10-09 — Combined series HUD
+- Current series and best-attempt/required series share one ticket: current count above localized compact best progress. Removed duplicate series objective ticket in both Russian and other locales. Single remaining objective ticket keeps normal width and is centered. Atlas PNG unchanged.
+- Validation: import zero diagnostics; runtime Russian 720x1280 capture checked; smoke PASS. Gameplay series rules untouched.
+
+### 2026-10-09 — Misses HUD removed
+- Removed persistent misses counter from Russian ticket HUD and other localized HUDs. Empty objective row is hidden; golden progress remains when required. Miss gameplay and life-loss feedback are unchanged. PNG untouched.
+- Validation: import passed, zero diagnostics; runtime 720x1280 capture checked with no golden objective and no misses row. Diff whitespace check passed.
+
+### 2026-10-09 — Series lettering redrawn
+- Replaced only series ticket with standalone hud_series_v2.png generated with built-in image_gen. Visible art aspect matches wide 488x82 HUD slot; lettering no longer compressed vertically. Original atlas retained unchanged.
+- Validation: import zero diagnostics; runtime 720x1280 capture checked; diff whitespace passed.
+
+### 2026-10-11 — Gameplay refactor and measured HUD optimization
+
+- Audited accepted taps, hit/escape lifecycles, endless boundaries, spawn fairness, adaptation and training against current SPEC. Preserved the existing dirty tree; scoped pre-edit copies and logs are under `builds/debug/verification/refactor_2026-10-11/`.
+- Shared one recorded run RNG across planner, spawner and gameplay controller; preserved slot-repeat history across rounds. Numeric profiles, scoring/life rules, timing, training, existing platform integrations and disabled analytics retained.
+- Scoped duplicate bonus feedback suppression to slot/lifecycle instead of accumulating per-type counters. Reserved-hit feedback uses the clown head while subsequent empty strikes keep the box target. Clear cancels stale empty-hit/flash tweens and rotation.
+- Separated life-icon tweens and corrected restored-hammer destination with shared HUD coordinates. Cached panel styles and stopped redraws for unchanged timer seconds, run details and static message lifetime.
+- Regression evidence: new test reproduced 10 failing assertions before fixes; final 47 checks pass. Full run_tests, 32,033 fairness checks, 21,131 endless checks including 50 actual scene round transitions, loop/results/mastery/training-start and smoke passed. Import has zero diagnostics; negative-save-test warnings match baseline.
+- GPU measurement: 180 frames, 180 HUD draws before / 4 after; final PNGs are byte-identical. Reviewed RU impact 720x1280 and EN warning 1440x3200. This is desktop rendering/logic proof, not measured Android FPS or human balance validation.
+- Corrected stale SPEC test scores and superseded ad-policy summary without changing those rules. Details, reproduction commands and remaining device/human checks: `docs/REFACTOR_REVIEW_2026-10-11.md`. No release export or publication.
+
+### 2026-10-12 — Clock spawn slowdown and slower Fast escape
+
+- Clock hits now halve new-clown spawn countdown speed for five active seconds instead of adding round time. Repeat hits refresh five seconds without stacking. Pause freezes the effect, new rounds clear it, and pending paired spawns use the same slowed countdown. Existing clown movement/windows remain independent of Clock.
+- Interpreted the requested 50% reduction of Fast disappearance speed as doubling its available hit window: recovery .700, build .675, variation .625, pressure .600, peak .550 seconds; tutorial profile .700, controlled demo 2.50 seconds. Retreat animation is retained.
+- Updated gameplay wiring, training action/snapshot handling, RU/EN hints/rules/feedback, profiles, SPEC and the Clock invariant in AGENTS. Preserved pre-existing workspace changes.
+- Verification: import zero diagnostics; clock_slowdown_test, full run_tests, round_results, tutorial_resume, tutorial_mastery, 32,033 endless_fairness checks and smoke passed. Full suite emits expected negative-save-test warnings. No device or human balance validation performed.
+
+### 2026-10-12 — Separate Statistics screen
+
+- Removed the About action/panel and its RU/EN strings. Main menu now offers Play, Training, Settings and Statistics; record text is no longer drawn on the main menu.
+- Added scenes/ui/Statistics.tscn and scripts/ui/statistics.gd, routed through SceneRouter. It reads the existing independent best score, series, completed rounds and active duration from SaveManager, and Back returns to a fresh main menu. No save schema or gameplay changes.
+- Validation: import zero diagnostics, full run_tests (including all four record values and Statistics/Back navigation) PASS, smoke PASS, scoped whitespace check PASS. Existing negative-save-test warnings retained. Reviewed OpenGL captures of RU Statistics and menu at 720x1280 and EN Statistics at 360x800, including maximum supported record numbers, under builds/debug/verification/endless/captures/. Physical-device validation not performed. Reference: existing circus menu/style; screenshot comparison YES; new panel follows existing panel/button styling.
+
+### 2026-10-12 — Ticket HUD restored for endless gameplay
+
+- Restored the approved cream/red/gold ticket artwork for timer, round/training, score, series and phase, alongside existing ticket lives/pause. Current endless HUD fields remain; no campaign score targets, progress track, misses row or Golden objectives restored.
+- Blank localized frames use nine source patches from the existing series PNG; borders/stars and blank paper are reused without changing either PNG. Russian series uses its approved printed artwork; other locales retain translated captions. Round/training and numeric values stay dynamic.
+- Retained layout dimensions, pause touch area, board input, hammer restoration destinations, animation state and redraw guards. Adjusted caption/number insets to stay inside ticket borders.
+- Validation: import zero diagnostics; smoke PASS; gameplay_refactor_test 47/47 PASS including life animations and flight destination; real OpenGL HUD redraw check PASS (4 redraws/180 frames). Reviewed RU 720x1280 training/Clock and EN 1440x3200 ordinary warning captures under builds/debug/verification/endless/captures/hud_tickets_restored_*.png. Reference checked YES (verification/hud_series_v2_ru_720x1280.png); screenshot comparison YES, visually. Deviations: current endless round/score/phase fields and existing feedback sign retained; former campaign labels/progress intentionally replaced. Physical device not verified.
+
+### 2026-10-12 — Phase caption without lower HUD ticket
+
+- Removed the lower phase/training ticket background. Phase captions now use uppercase Yeseva One display lettering with warm gold fill, dark outline and shadow directly over the stage. Conditional recovery progress stays visible as outlined green text; top HUD tickets are retained.
+- Bundled the Cyrillic/Latin font from https://github.com/google/fonts/tree/main/ofl/yesevaone with its SIL OFL license under assets/fonts/yeseva_one/. No remote font dependency at runtime.
+- Validation: import zero diagnostics, smoke PASS, scoped whitespace PASS. Reviewed real OpenGL RU training and EN recovery/warning captures at 720x1280 under builds/debug/verification/endless/captures/hud_phase_text_*.png. Reference checked YES (user-requested ticket HUD and explicit lower-frame removal); screenshot comparison YES. Physical-device appearance unverified.
+
+### 2026-10-12 — Permanent message HUD directly below tickets
+
+- Removed the separate phase/training description completely, retaining the top round/training number ticket. Moved the shared message sign to x40/y222, 1000x86 design pixels directly under score/series. The sign and decorative stars remain visible while its text is empty. Feedback and confusion use identical bounds; optional recovery progress occupies the sign between transient messages.
+- Clock slowdown and Glutton hit bonus captions also appear in the shared message sign; existing floating impact captions and gameplay rules remain.
+- Validation: import zero diagnostics, full run_tests PASS (expected negative-save warnings), smoke PASS, whitespace PASS. Real OpenGL RU 720x1280 empty/sign and life-warning states visually reviewed under builds/debug/verification/endless/captures/hud_permanent_message_*.png. Reference checked YES against current ticket HUD; screenshot comparison YES. Physical-device appearance unverified.
+
+### 2026-10-12 — Horizontal score ticket
+- Score caption and numeric value now share one horizontal line, caption left and number right, within the existing ticket. Numeric text fitting retained.
+- Validation: import zero diagnostics; reviewed OpenGL RU 720x1280 capture builds/debug/verification/endless/captures/hud_score_horizontal_ru.png; scoped whitespace check passed. Local presentation change only.
+
+### 2026-10-12 — Music volume reduction
+- MusicPlayer linear gain is now 0.75 (25% below its previous default); SFX gain and music enable/disable behavior retained.
+- Validation: import zero diagnostics, smoke PASS, scoped whitespace check PASS. Listening balance not assessed.
+
+### 2026-10-12 — Training Next button at top
+- Moved the free-practice Next button from the bottom to centered design y334 plus native HUD inset, directly below the permanent message sign. Existing size, visibility, input signal and modal layouts retained.
+- Validation: import zero diagnostics, smoke PASS, whitespace PASS; OpenGL RU 720x1280 capture tutorial_advance_top_ru.png reviewed with clear separation from HUD and board.

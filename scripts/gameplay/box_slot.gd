@@ -45,12 +45,15 @@ var state: SlotState = SlotState.IDLE
 var _animation: Tween
 var _idle_animation: Tween
 var _empty_animation: Tween
+var _flash_animation: Tween
 var _lifecycle_id: int = 0
 var _lid_open: float = 0.0
 var _character_type: StringName = &"normal"
 var _impact_flash: float = 0.0
 var _open_box_image: Image
 var _closed_box_image: Image
+var _visible_time_remaining: float = 0.0
+var _round_retiring := false
 
 
 func _ready() -> void:
@@ -64,11 +67,25 @@ func _ready() -> void:
 	queue_redraw()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	# The spring is drawn by this slot, while the clown moves in its child layer.
 	# Redraw while exposed so its endpoint follows every tweened pose.
 	if clown.visible:
 		queue_redraw()
+	if _round_retiring:
+		if state == SlotState.ACTIVE:
+			_escape_character()
+		return
+	if is_hittable():
+		_visible_time_remaining -= delta
+		if _visible_time_remaining <= 0.0:
+			_escape_character()
+
+
+func finish_round_animation() -> void:
+	# Let an opening finish its tuned motion before retreating. Reserved hits
+	# keep their full wind-up, impact and lid closure.
+	_round_retiring = true
 
 
 func is_idle() -> bool:
@@ -76,11 +93,11 @@ func is_idle() -> bool:
 
 
 func is_hittable() -> bool:
-	return state == SlotState.ACTIVE
+	return state == SlotState.ACTIVE or (state == SlotState.OPENING and _lid_open >= 0.99 and _get_clown_local_point(HAMMER_TARGET_LOCAL).y <= 80.0)
 
 
-func get_local_impact_position() -> Vector2:
-	if is_hittable():
+func get_local_impact_position(include_reserved_hit: bool = false) -> Vector2:
+	if is_hittable() or (include_reserved_hit and state == SlotState.HIT):
 		# Strike the visible head, not the handle/pivot of the hammer or the box rim.
 		return _get_clown_local_point(HAMMER_TARGET_LOCAL)
 	return Vector2(145.0, 145.0)
@@ -114,9 +131,11 @@ func spawn_character(character_type: StringName, visible_time: float = 1.5) -> b
 
 	_lifecycle_id += 1
 	var lifecycle_id := _lifecycle_id
+	_round_retiring = false
 	_character_type = character_type
 	clown.set_character_type(character_type)
 	state = SlotState.OPENING
+	_visible_time_remaining = visible_time
 	clown.visible = true
 	_set_clown_position(CLOSED_POSITION)
 	clown.scale = Vector2(1.0, 0.30)
@@ -127,7 +146,8 @@ func spawn_character(character_type: StringName, visible_time: float = 1.5) -> b
 
 
 func _run_spawn_cycle(lifecycle_id: int, visible_time: float) -> void:
-
+	if lifecycle_id != _lifecycle_id or state != SlotState.OPENING:
+		return
 	_animation = create_tween()
 	_animation.tween_method(_set_lid_open, 0.0, 1.0, 0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	var visible_y := CLOSED_POSITION.y - pop_height
@@ -142,9 +162,6 @@ func _run_spawn_cycle(lifecycle_id: int, visible_time: float) -> void:
 
 	state = SlotState.ACTIVE
 	_play_idle_wobble(lifecycle_id)
-	await get_tree().create_timer(visible_time, false).timeout
-	if lifecycle_id == _lifecycle_id and state == SlotState.ACTIVE:
-		await _escape_character()
 
 
 func hit_character() -> bool:
@@ -154,18 +171,32 @@ func hit_character() -> bool:
 	_lifecycle_id += 1
 	var lifecycle_id := _lifecycle_id
 	state = SlotState.HIT
+	if _animation != null and _animation.is_valid():
+		_animation.kill()
 	_stop_idle_wobble()
 	character_hit.emit(slot_index, _character_type)
 	if lifecycle_id == _lifecycle_id and state == SlotState.HIT:
-		_play_hit_animation.call_deferred(lifecycle_id)
+		_play_reserved_hit.call_deferred(lifecycle_id)
 	return true
 
 
+func _play_reserved_hit(lifecycle_id: int) -> void:
+	await get_tree().create_timer(0.22, false).timeout
+	if lifecycle_id == _lifecycle_id and state == SlotState.HIT:
+		_play_hit_animation(lifecycle_id)
+
+
 func force_clear() -> void:
+	_round_retiring = false
 	_lifecycle_id += 1
 	_stop_idle_wobble()
 	if _animation != null and _animation.is_valid():
 		_animation.kill()
+	if _empty_animation != null and _empty_animation.is_valid():
+		_empty_animation.kill()
+	if _flash_animation != null and _flash_animation.is_valid():
+		_flash_animation.kill()
+	rotation = 0.0
 	state = SlotState.IDLE
 	clown.visible = false
 	_set_clown_position(CLOSED_POSITION)
@@ -217,8 +248,8 @@ func _play_hit_animation(lifecycle_id: int) -> void:
 		_animation.kill()
 	clown.rotation = 0.0
 	_impact_flash = 1.0
-	var flash_tween := create_tween()
-	flash_tween.tween_method(_set_impact_flash, 1.0, 0.0, impact_duration)
+	_flash_animation = create_tween()
+	_flash_animation.tween_method(_set_impact_flash, 1.0, 0.0, impact_duration)
 	var impact_start_y := clown.position.y
 	_animation = create_tween()
 	_animation.tween_property(clown, "scale", Vector2(1.30, impact_squash), impact_duration * 0.55).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
@@ -254,6 +285,7 @@ func _escape_character() -> void:
 
 
 func _begin_cooldown() -> void:
+	var lifecycle_id := _lifecycle_id
 	state = SlotState.COOLDOWN
 	clown.visible = false
 	_set_clown_position(CLOSED_POSITION)
@@ -261,7 +293,8 @@ func _begin_cooldown() -> void:
 	clown.rotation = 0.0
 	queue_redraw()
 	await get_tree().create_timer(0.20, false).timeout
-	state = SlotState.IDLE
+	if lifecycle_id == _lifecycle_id and state == SlotState.COOLDOWN:
+		state = SlotState.IDLE
 
 
 func _set_lid_open(value: float) -> void:
@@ -352,6 +385,10 @@ func _draw_oval(center: Vector2, radii: Vector2, color: Color) -> void:
 
 func get_character_type() -> StringName:
 	return _character_type
+
+
+func get_lifecycle_id() -> int:
+	return _lifecycle_id
 
 
 func debug_get_lid_open() -> float:

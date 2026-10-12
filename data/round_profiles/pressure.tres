@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="RoundProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/round_profile.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "pressure"
+spawn_interval_min = 0.78
+spawn_interval_max = 1
+end_spawn_interval_multiplier = 0.94
+max_active_characters = 6
+max_decision_targets = 2
+double_spawn_chance = 0.18
+normal_visible_time = 1.65
+fast_visible_time = 0.6
+golden_visible_time = 1.65
+normal_weight = 62
+fast_weight = 10
+golden_weight = 10
+bomb_weight = 8
+clock_weight = 5
+glutton_weight = 5
+allowed_patterns = PackedStringArray("steady", "pairs", "precision", "golden_series")

@@ -31,6 +31,7 @@ func _ready() -> void:
 	_music_player = AudioStreamPlayer.new()
 	_music_player.name = "MusicPlayer"
 	_music_player.bus = &"Music"
+	_music_player.volume_linear = 0.75
 	_music_player.process_mode = Node.PROCESS_MODE_PAUSABLE
 	_music_player.finished.connect(_on_music_finished)
 	add_child(_music_player)
@@ -74,7 +75,7 @@ func play_music() -> void:
 		_music_player.play()
 
 
-func play_music_for_level(_level_id: int) -> void:
+func play_music_for_run() -> void:
 	if MUSIC_TRACKS.is_empty() or _music_player == null:
 		return
 	var next_track_index := _music_rng.randi_range(0, MUSIC_TRACKS.size() - 1)

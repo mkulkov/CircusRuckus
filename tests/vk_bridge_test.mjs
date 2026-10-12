@@ -6,15 +6,16 @@ const shell = fs.readFileSync(new URL('../web/portrait_shell.html', import.meta.
 const source = shell.match(/\/\/ A small host API[\s\S]*?<\/script>/)[0].replace(/<\/script>$/, '');
 const flush = async () => { for (let i = 0; i < 8; i++) await new Promise(resolve => setImmediate(resolve)); };
 
-function setup() {
+function setup(yandex = false) {
   const calls = [];
   const listeners = new Map();
   const state = { owned: false, confirmed: true, status: 'success', reject: false, networkFailure: false, pending: false, pauses: 0, resumes: 0 };
   let orderTimeout;
+  const adTimeouts = new Map();
   const context = {
     console, URL, URLSearchParams, AbortController,
-    setTimeout(callback, ms) { if (ms === 180000) { orderTimeout = callback; return 'order'; } return setTimeout(callback, ms); },
-    clearTimeout(id) { if (id !== 'order') clearTimeout(id); },
+    setTimeout(callback, ms) { if (ms === 180000) { orderTimeout = callback; return 'order'; } if ([10000, 30000].includes(ms)) { adTimeouts.set(ms, callback); return ms; } return setTimeout(callback, ms); },
+    clearTimeout(id) { if (adTimeouts.has(id)) adTimeouts.delete(id); else if (id !== 'order') clearTimeout(id); },
     window: { location: { search: '?vk_app_id=54768735&vk_user_id=123&sign=signed' }, addEventListener: (name, cb) => listeners.set(name, cb) },
     document: { visibilityState: 'visible', addEventListener: (name, cb) => listeners.set(name, cb) },
     fetch: async (url, options) => {
@@ -35,6 +36,7 @@ function setup() {
       if (method === 'VKWebAppInit') return { result: true };
       if (method.includes('Ads') || method.includes('BannerAd')) {
         if (state.adReject) throw new Error('No ads');
+        if (state.adPending) return new Promise(resolve => { state.releaseAd = resolve; });
         return { result: state.adResult !== false };
       }
       if (method === 'VKWebAppShowOrderBox') {
@@ -46,11 +48,24 @@ function setup() {
       return { result: true };
     } }
   };
+  if (yandex) context.YaGames = { init: async () => ({
+    on() {}, features: {},
+    adv: {
+      getBannerAdvStatus: async () => ({ stickyAdvIsShowing: false }),
+      showBannerAdv: async () => {
+        calls.push({ method: 'yandexShow' });
+        if (state.adPending) return new Promise(resolve => { state.releaseAd = resolve; });
+        return { stickyAdvIsShowing: true };
+      },
+      hideBannerAdv: async () => { calls.push({ method: 'yandexHide' }); return { stickyAdvIsShowing: false }; },
+      showFullscreenAdv: ({ callbacks }) => { state.fullscreen = callbacks; }
+    }
+  }) };
   vm.runInNewContext(source, context);
   const bridge = context.window.ClownSmashPlatform;
   bridge.initialize(() => {});
   bridge.subscribeLifecycle(() => state.pauses++, () => state.resumes++);
-  return { bridge, state, calls, listeners, expireOrder: () => orderTimeout() };
+  return { bridge, state, calls, listeners, expireOrder: () => orderTimeout(), expireAd: ms => adTimeouts.get(ms)() };
 }
 
 for (const adResult of [true, false]) {
@@ -61,6 +76,18 @@ for (const adResult of [true, false]) {
   assert.equal(banner.visible, adResult);
   let interstitial; bridge.showInterstitial(() => {}, value => interstitial = JSON.parse(value)); await flush();
   assert.equal(interstitial.success, adResult, 'SDK result:false must not count as a shown ad');
+}
+for (const placement of ['availability', 'interstitial']) {
+  const { bridge, state, expireAd } = setup(); await flush(); state.adPending = true;
+  const results = [];
+  if (placement === 'availability') bridge.checkAdAvailability(value => results.push(JSON.parse(value)));
+  else bridge.showInterstitial(() => {}, value => results.push(JSON.parse(value)));
+  await flush();
+  expireAd(placement === 'availability' ? 10000 : 30000);
+  assert.equal(results.length, 1, `${placement} timeout completes once`);
+  assert.equal(results[0][placement === 'availability' ? 'available' : 'success'], false);
+  state.releaseAd({ result: true }); await flush();
+  assert.equal(results.length, 1, `${placement} late provider result cannot repeat completion`);
 }
 {
   const { bridge, state } = setup(); await flush(); state.adReject = true;
@@ -130,3 +157,33 @@ for (const changes of [{ reject: true }, { status: 'cancel' }, { status: 'fail' 
 }
 
 console.log('VK BRIDGE TEST: PASS');
+
+// A delayed gameplay show must finish before the results/menu hide.
+{
+  const { bridge, state, calls } = setup(); await flush(); state.adPending = true;
+  bridge.setBannerVisible(true, () => {}); await flush();
+  bridge.setBannerVisible(false, () => {}); await flush();
+  assert.equal(calls.filter(c => c.method === 'VKWebAppHideBannerAd').length, 0);
+  state.adPending = false; state.releaseAd({ result: true }); await flush();
+  assert.equal(calls.filter(c => c.method?.includes('BannerAd')).at(-1).method, 'VKWebAppHideBannerAd');
+}
+{
+  const { bridge, calls } = setup(); await flush();
+  bridge.setBannerVisible(true, () => {});
+  bridge.setBannerVisible(false, () => {}); await flush();
+  assert.equal(calls.some(c => c.method === 'VKWebAppShowBannerAd'), false, 'superseded gameplay banner never opens in results');
+}
+console.log('Banner transition race tests: PASS');
+
+{
+  const { bridge, state, calls } = setup(true); await flush(); state.adPending = true;
+  bridge.setBannerVisible(true, () => {}); await flush();
+  bridge.setBannerVisible(false, () => {}); await flush();
+  state.adPending = false; state.releaseAd({ stickyAdvIsShowing: true }); await flush();
+  assert.equal(calls.at(-1).method, 'yandexHide', 'delayed Yandex show is followed by results hide');
+  const results = [];
+  bridge.showInterstitial(() => {}, value => results.push(JSON.parse(value)));
+  state.fullscreen.onClose(false); state.fullscreen.onClose(true);
+  assert.equal(results.length, 1); assert.equal(results[0].success, false, 'wasShown:false is not a show');
+}
+console.log('Yandex banner ordering and wasShown tests: PASS');

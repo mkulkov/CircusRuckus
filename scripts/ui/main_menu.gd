@@ -1,7 +1,8 @@
 extends Control
 
-signal play_requested(level_id: int)
-signal levels_requested
+signal play_requested
+signal tutorial_requested
+signal statistics_requested
 signal settings_requested
 
 const DESIGN_SIZE := Vector2(1080.0, 1920.0)
@@ -13,34 +14,22 @@ const MENU_PADDING := Vector2(40.0, 42.0)
 const MENU_GAP := 26.0
 const MENU_CENTER_Y := 1210.0
 
-var _save_data: Dictionary = {}
 var _buttons: Array[Button] = []
-var _about_panel: Control
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_create_action(tr("MENU_PLAY"), "PlayButton", func() -> void: play_requested.emit(_earliest_incomplete_level()))
-	_create_action(tr("MENU_LEVELS"), "LevelsButton", func() -> void: levels_requested.emit())
+	_create_action(tr("MENU_PLAY"), "PlayButton", func() -> void: play_requested.emit())
+	_create_action(tr("MENU_TUTORIAL"), "TutorialButton", func() -> void: tutorial_requested.emit())
 	_create_action(tr("MENU_SETTINGS"), "SettingsButton", func() -> void: settings_requested.emit())
-	_create_action(tr("MENU_ABOUT"), "AboutButton", _show_about)
-	_create_about_panel()
+	_create_action(tr("MENU_STATISTICS"), "StatisticsButton", func() -> void: statistics_requested.emit())
 	resized.connect(_layout)
 	_layout()
 	queue_redraw()
 
 
-func configure(save_data: Dictionary) -> void:
-	_save_data = save_data.duplicate(true)
-
-
-func _earliest_incomplete_level() -> int:
-	var highest := clampi(int(_save_data.get("highest_unlocked_level", 1)), 1, 9)
-	var completed: Array = _save_data.get("completed_levels", [])
-	for level_id in range(1, highest + 1):
-		if not completed.has(level_id):
-			return level_id
-	return 9 if highest >= 9 else highest
+func configure(_save_data: Dictionary) -> void:
+	queue_redraw()
 
 
 func _create_action(text: String, node_name: String, callback: Callable) -> void:
@@ -52,36 +41,6 @@ func _create_action(text: String, node_name: String, callback: Callable) -> void
 	CircusUIStyle.apply_button(button, 42)
 	add_child(button)
 	_buttons.append(button)
-
-
-func _create_about_panel() -> void:
-	_about_panel = Panel.new()
-	_about_panel.name = "AboutPanel"
-	_about_panel.visible = false
-	_about_panel.add_theme_stylebox_override("panel", _panel_style())
-	add_child(_about_panel)
-	var label := Label.new()
-	label.text = tr("ABOUT_TEXT").replace("\\n", "\n")
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 32)
-	label.add_theme_color_override("font_color", CircusUIStyle.CREAM)
-	label.add_theme_color_override("font_outline_color", CircusUIStyle.INK)
-	label.add_theme_constant_override("outline_size", 3)
-	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 28)
-	_about_panel.add_child(label)
-	var close := Button.new()
-	close.text = tr("CLOSE")
-	close.focus_mode = Control.FOCUS_NONE
-	CircusUIStyle.apply_button(close, 30, true)
-	close.position = Vector2(110, 340)
-	close.size = Vector2(360, 80)
-	close.pressed.connect(func() -> void: _about_panel.visible = false)
-	_about_panel.add_child(close)
-
-
-func _show_about() -> void:
-	_about_panel.visible = true
 
 
 func _layout() -> void:
@@ -99,14 +58,9 @@ func _layout() -> void:
 		) * scale_factor
 		button.size = MENU_BUTTON_SIZE * scale_factor
 		button.add_theme_font_size_override("font_size", maxi(24, roundi(42.0 * scale_factor)))
-	_about_panel.position = Vector2(250.0, 650.0) * scale_factor
-	_about_panel.size = Vector2(580.0, 460.0) * scale_factor
-	_about_panel.scale = Vector2.ONE
+
+
 func _draw() -> void:
 	var locale := TranslationServer.get_locale().to_lower()
 	var background := SPLASH_EN if locale.begins_with("en") else SPLASH_RU
 	draw_texture_rect(background, Rect2(Vector2.ZERO, size), false)
-
-
-func _panel_style() -> StyleBoxFlat:
-	return CircusUIStyle.panel_style()

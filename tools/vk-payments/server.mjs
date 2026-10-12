@@ -93,17 +93,11 @@ export function createPaymentService(config) {
       db.exec('BEGIN IMMEDIATE');
       try {
         const row = getProgress.get(...key);
-        const previous = row ? JSON.parse(row.data) : null;
-        if (previous) {
-          incoming.highest_unlocked_level = Math.max(previous.highest_unlocked_level, incoming.highest_unlocked_level);
-          incoming.completed_levels = [...new Set([...previous.completed_levels, ...incoming.completed_levels])].sort((a,b) => a-b);
-          for (const field of ['best_scores', 'best_combos']) for (const [level, value] of Object.entries(previous[field])) {
-            incoming[field][level] = Math.max(value, incoming[field][level] || 0);
-          }
-        }
-        putProgress.run(...key, JSON.stringify(incoming));
+        const previous = row ? normalizeProgress(JSON.parse(row.data)) : null;
+        const merged = previous ? mergeProgress(previous, incoming) : incoming;
+        putProgress.run(...key, JSON.stringify(merged));
         db.exec('COMMIT');
-        return { success: true, data: incoming };
+        return { success: true, data: merged };
       } catch (error) { db.exec('ROLLBACK'); throw error; }
     },
     okCallback(params, mode) {
@@ -192,27 +186,90 @@ export function createPaymentService(config) {
 }
 
 
-export function normalizeProgress(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value) || value.save_version !== 1 ||
-      !Number.isInteger(value.highest_unlocked_level) || value.highest_unlocked_level < 1 || value.highest_unlocked_level > 9 ||
+const LESSON_IDS = ['normal', 'misses', 'bomb', 'two', 'series', 'golden', 'fast', 'clock', 'glutton', 'endless_rules'];
+const RECORD_FIELDS = ['best_run_score', 'best_run_combo', 'best_run_rounds', 'best_run_active_seconds'];
+const SETTINGS_FIELDS = ['music_enabled', 'sound_enabled', 'haptics_enabled'];
+const object = value => !!value && typeof value === 'object' && !Array.isArray(value);
+const counter = value => Number.isSafeInteger(value) && value >= 0;
+const duration = value => Number.isFinite(value) && value >= 0 && value <= Number.MAX_SAFE_INTEGER;
+const emptyLegacy = () => ({ highest_unlocked_level: 1, completed_levels: [], best_scores: {}, best_combos: {} });
+
+function normalizeLegacy(value) {
+  if (!object(value) || !Number.isInteger(value.highest_unlocked_level) ||
+      value.highest_unlocked_level < 1 || value.highest_unlocked_level > 9 ||
       !Array.isArray(value.completed_levels) || value.completed_levels.length > 9 ||
-      value.completed_levels.some(level => !Number.isInteger(level) || level < 1 || level > 9)) throw new Error('Invalid progress');
-  const result = { save_version: 1, highest_unlocked_level: value.highest_unlocked_level,
-    completed_levels: [...new Set(value.completed_levels)].sort((a,b) => a-b), ads_removed: false };
+      value.completed_levels.some(level => !Number.isInteger(level) || level < 1 || level > 9)) throw new Error('Invalid legacy progress');
+  const result = { highest_unlocked_level: value.highest_unlocked_level,
+    completed_levels: [...new Set(value.completed_levels)].sort((a,b) => a-b) };
   for (const field of ['best_scores', 'best_combos']) {
-    if (!value[field] || typeof value[field] !== 'object' || Array.isArray(value[field])) throw new Error('Invalid scores');
+    if (!object(value[field])) throw new Error('Invalid scores');
     result[field] = {};
     for (const [level, score] of Object.entries(value[field])) {
-      if (!/^[1-9]$/.test(level) || !Number.isSafeInteger(score) || score < 0) throw new Error('Invalid score');
+      if (!/^[1-9]$/.test(level) || !counter(score)) throw new Error('Invalid score');
       result[field][level] = score;
     }
   }
-  for (const field of ['music_enabled', 'sound_enabled', 'haptics_enabled']) {
+  for (const level of result.completed_levels) result.highest_unlocked_level = Math.max(result.highest_unlocked_level, Math.min(9, level+1));
+  return result;
+}
+
+export function normalizeProgress(value) {
+  if (!object(value) || ![1, 2].includes(value.save_version)) throw new Error('Unsupported progress version');
+  const result = { save_version: value.save_version, ads_removed: false };
+  for (const field of SETTINGS_FIELDS) {
     if (typeof value[field] !== 'boolean') throw new Error('Invalid settings');
     result[field] = value[field];
   }
-  for (const level of result.completed_levels) result.highest_unlocked_level = Math.max(result.highest_unlocked_level, Math.min(9, level+1));
+  if (value.save_version === 1) return { ...result, ...normalizeLegacy(value) };
+  for (const field of ['tutorial_version', 'endless_rules_version']) {
+    if (!counter(value[field]) || value[field] < 1) throw new Error('Invalid rules version');
+    result[field] = value[field];
+  }
+  // Malformed individual achievement fields do not destroy settings/history.
+  result.learned_lessons = Array.isArray(value.learned_lessons)
+    ? LESSON_IDS.filter(id => value.learned_lessons.includes(id)) : [];
+  for (const field of RECORD_FIELDS) result[field] = (field === 'best_run_active_seconds'
+    ? duration(value[field]) : counter(value[field])) ? value[field] : 0;
+  result.legacy_campaign = object(value.legacy_campaign) ? normalizeLegacy(value.legacy_campaign) : emptyLegacy();
   return result;
+}
+
+function mergeLegacy(first, second) {
+  const merged = normalizeLegacy(first);
+  merged.highest_unlocked_level = Math.max(first.highest_unlocked_level, second.highest_unlocked_level);
+  merged.completed_levels = [...new Set([...first.completed_levels, ...second.completed_levels])].sort((a,b) => a-b);
+  for (const field of ['best_scores', 'best_combos']) for (const [level, score] of Object.entries(second[field])) {
+    merged[field][level] = Math.max(score, merged[field][level] || 0);
+  }
+  return merged;
+}
+
+export function mergeProgress(previousValue, incomingValue) {
+  const previous = normalizeProgress(previousValue), incoming = normalizeProgress(incomingValue);
+  if (previous.save_version === 1 && incoming.save_version === 1) {
+    return { ...incoming, ...mergeLegacy(previous, incoming) };
+  }
+  const v2 = incoming.save_version === 2 ? incoming : previous;
+  const merged = { ...v2, ads_removed: false };
+  // Preserve incoming-settings policy even when an older device updates progress.
+  for (const field of SETTINGS_FIELDS) merged[field] = incoming[field];
+  merged.legacy_campaign = mergeLegacy(previous.save_version === 1 ? previous : previous.legacy_campaign,
+    incoming.save_version === 1 ? incoming : incoming.legacy_campaign);
+  if (previous.save_version === 2 && incoming.save_version === 2) {
+    for (const [version, fields] of [['tutorial_version', ['learned_lessons']], ['endless_rules_version', RECORD_FIELDS]]) {
+      if (previous[version] === incoming[version]) {
+        if (version === 'tutorial_version') merged.learned_lessons = LESSON_IDS.filter(id =>
+          previous.learned_lessons.includes(id) || incoming.learned_lessons.includes(id));
+        else for (const field of fields) merged[field] = Math.max(previous[field], incoming[field]);
+      } else {
+        // An older client cannot replace achievements from a newer rules schema.
+        const newer = previous[version] > incoming[version] ? previous : incoming;
+        merged[version] = newer[version];
+        for (const field of fields) merged[field] = newer[field];
+      }
+    }
+  }
+  return normalizeProgress(merged);
 }
 
 export function isVkHostingOrigin(origin, appId) {

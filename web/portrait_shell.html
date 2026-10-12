@@ -59,6 +59,8 @@
 			const launch = new URLSearchParams(window.location?.search || '');
 			const isOk = launch.get('vk_client') === 'ok';
 			let cloudSaveQueue = Promise.resolve();
+			let bannerQueue = Promise.resolve();
+			let bannerGeneration = 0;
 			let hostHidden = false;
 			let documentHidden = false;
 			const updateVisibility = () => {
@@ -240,31 +242,27 @@
 					});
 				},
 				setBannerVisible(visible, callback) {
-					ensureInitialized().then(() => {
-					if (platform === 'yandex' && ysdk) {
-						if (!visible) {
-							ysdk.adv.hideBannerAdv()
-								.then((status) => { console.info('[ClownSmash][Yandex] Sticky banner hidden', status); finishJson(callback, { visible: !!status.stickyAdvIsShowing, reason: status.reason || '' }); })
-								.catch((error) => { console.error('[ClownSmash][Yandex] Sticky banner hide failed', error); finishJson(callback, { visible: false, reason: 'SDK_ERROR' }); });
+					const generation = ++bannerGeneration;
+					bannerQueue = bannerQueue.catch(() => {}).then(() => ensureInitialized()).then(() => {
+						if (generation !== bannerGeneration) {
+							finishJson(callback, { visible: false, reason: 'SUPERSEDED' });
 							return;
 						}
-						ysdk.adv.getBannerAdvStatus().then((status) => {
-							console.info('[ClownSmash][Yandex] Sticky banner status', status);
-							if (status.stickyAdvIsShowing || status.reason) return status;
-							return ysdk.adv.showBannerAdv().then((shownStatus) => {
-								console.info('[ClownSmash][Yandex] Sticky banner show result', shownStatus);
-								return shownStatus;
-							});
-						}).then((status) => finishJson(callback, { visible: !!status.stickyAdvIsShowing, reason: status.reason || '' }))
-							.catch((error) => { console.error('[ClownSmash][Yandex] Sticky banner request failed', error); finishJson(callback, { visible: false, reason: 'SDK_ERROR' }); });
-					} else if (platform === 'vk' && typeof vkBridge !== 'undefined') {
-						vkBridge.send(visible ? 'VKWebAppShowBannerAd' : 'VKWebAppHideBannerAd', visible ? { banner_location: 'bottom' } : {})
-							.then((data) => finishJson(callback, { visible: !!visible && data.result === true, reason: visible && data.result !== true ? 'NO_ADS' : '' }))
-							.catch(() => finishJson(callback, { visible: false, reason: 'SDK_ERROR' }));
-					} else {
+						if (platform === 'yandex' && ysdk) {
+							const request = visible
+								? ysdk.adv.getBannerAdvStatus().then(status => {
+									if (generation !== bannerGeneration || status.stickyAdvIsShowing || status.reason) return status;
+									return ysdk.adv.showBannerAdv();
+								})
+								: ysdk.adv.hideBannerAdv();
+							return request.then(status => finishJson(callback, { visible: !!status.stickyAdvIsShowing, reason: status.reason || '' }));
+						}
+						if (platform === 'vk' && typeof vkBridge !== 'undefined') {
+							return vkBridge.send(visible ? 'VKWebAppShowBannerAd' : 'VKWebAppHideBannerAd', visible ? { banner_location: 'bottom' } : {})
+								.then(data => finishJson(callback, { visible: !!visible && data.result === true, reason: visible && data.result !== true ? 'NO_ADS' : '' }));
+						}
 						finishJson(callback, { visible: false, reason: 'UNSUPPORTED_PLATFORM' });
-					}
-					});
+					}).catch(() => finishJson(callback, { visible: false, reason: 'SDK_ERROR' }));
 				},
 				checkAdAvailability(callback) {
 					let completed = false;

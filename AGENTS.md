@@ -42,19 +42,18 @@ If a requested implementation conflicts with a critical gameplay rule in `SPEC.m
 The MVP has:
 
 - one world: circus tent;
-- nine levels;
+- persistent four-round training followed by endless five-round cycles;
 - 3×3 boxes;
 - one-finger tap control;
-- 60-second base level duration;
-- three apple lives;
-- seven gameplay clown types: Normal, Fast, Golden, Bomb, Drunk, Clock, Glutton.
+- 25-second base round duration;
+- three hammer lives;
+- six progressively spawned types: Normal, Fast, Golden, Bomb, Clock, Glutton; Drunk remains implemented but disabled pending human clarity and balance validation.
 
 The MVP does **not** contain:
 
 - coins or currency;
 - shop;
-- ads or IAP;
-- accounts/backend/cloud sync;
+- new ads/IAP/backend systems beyond the existing integrations;
 - online leaderboard;
 - daily quests/battle pass/energy;
 - paid lives;
@@ -72,24 +71,24 @@ Never change these without explicit user approval:
 
 1. Board is exactly 3×3.
 2. Primary input is a single tap / one finger.
-3. Base level duration is 60 seconds.
-4. Player starts with 3 lives represented by hammers in the HUD.
+3. Base round duration is 25 seconds.
+4. Player starts each run with 3 lives represented by hammers in the HUD.
 5. Every three consecutive misses (empty-box strikes or escaped Normal/Fast/Golden) remove one life; any clown hit resets the streak, and each penalty starts a new streak.
-6. A scoring target hit gives exactly +10 score.
+6. Scoring hits give Normal +10, Fast +20, Golden +50.
 7. Combo does not multiply score in MVP.
 8. Normal, Fast and Golden are scoring targets.
 9. A correct scoring hit increases combo by 1.
 10. A miss on a scoring target resets combo.
 11. Empty-box tap resets combo.
-12. Clock and Glutton successful hits reset combo.
+12. Clock and Glutton successful hits preserve combo.
 13. Bomb and Drunk hits reset combo.
 14. Bomb hit removes one life.
 15. Ignoring Bomb has no penalty.
-16. Clock hit adds 10 seconds, subject to the time-bonus cap.
-17. Glutton hit restores one lost apple, up to 3 lives.
-18. If Glutton escapes, it consumes one apple/life.
-19. Drunk hit causes the next 3 gameplay taps to strike random boxes.
-20. Drunk effect is not 3 automatic hits.
+16. Clock hit halves new clown spawn speed for 5 active seconds; repeat hits refresh duration, pauses freeze it, and new rounds clear it. Round time is unchanged.
+17. Glutton hit restores one lost hammer life, up to 3 lives.
+18. If Glutton escapes, it consumes one hammer life and resets combo and consecutive misses.
+19. Drunk hit causes the next 1 gameplay tap to strike random boxes.
+20. Drunk effect is not an automatic hit.
 21. UI taps do not consume Drunk-effect strikes.
 22. No coins exist anywhere in MVP.
 
@@ -110,7 +109,7 @@ Use:
 - typed GDScript where practical;
 - signals for local communication;
 - `RandomNumberGenerator` for spawn randomness;
-- `.tres` Resources for level tuning.
+- `.tres` RoundProfile Resources for phase tuning.
 
 Do not introduce C#, a third-party addon, an external framework, or a backend unless explicitly required.
 
@@ -334,7 +333,7 @@ Touch targets should be forgiving: tap the logical BoxSlot area, not a tiny face
 
 ## 14. Save data
 
-Save only MVP fields defined in `SPEC.md`.
+Save v2 fields defined in `SPEC.md`, preserving v1 history through safe migration.
 The save system must fail safely on missing/corrupt files.
 Do not add currency/inventory fields “for the future”.
 

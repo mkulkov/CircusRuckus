@@ -4,9 +4,8 @@ GAME_TITLE_LINE_2,RUCKUS,ПЕРЕПОЛОХ
 MENU_PLAY,PLAY,ИГРАТЬ
 MENU_LEVELS,LEVELS,УРОВНИ
 MENU_SETTINGS,SETTINGS,НАСТРОЙКИ
-MENU_ABOUT,ABOUT,ОБ ИГРЕ
+MENU_STATISTICS,STATISTICS,СТАТИСТИКА
 MENU_SUBTITLE,A CHEERFUL CIRCUS GAME,ВЕСЁЛАЯ ЦИРКОВАЯ ИГРА
-ABOUT_TEXT,"CIRCUS RUCKUS\nA cheerful circus game","ЦИРКОВОЙ ПЕРЕПОЛОХ\nВесёлая цирковая игра"
 CLOSE,CLOSE,ЗАКРЫТЬ
 BACK,BACK,НАЗАД
 LEVEL_SELECT_TITLE,SELECT LEVEL,ВЫБОР УРОВНЯ
@@ -28,33 +27,119 @@ NEXT,NEXT,ДАЛЬШЕ
 LEVEL_COMPLETE,LEVEL COMPLETE!,УРОВЕНЬ ПРОЙДЕН!
 LEVEL_FAILED,TRY AGAIN!,НЕ ПОЛУЧИЛОСЬ!
 SCORE_VALUE,Score: %d,Очки: %d
-BEST_COMBO_VALUE,Best combo: x%d,Лучшее комбо: x%d
+BEST_COMBO_VALUE,Best series: %d,Лучшая серия: %d
 TARGET_VALUE,Target: %d,Цель: %d
 PROGRESS_NOT_SAVED,PROGRESS NOT SAVED,ПРОГРЕСС НЕ СОХРАНЁН
 LEVEL_VALUE,LEVEL %d,УРОВЕНЬ %d
 SCORE,SCORE,ОЧКИ
-COMBO,COMBO,КОМБО
+COMBO,SERIES,СЕРИЯ
 GOLD_VALUE,GOLD %d/%d,ЗОЛОТО %d/%d
 CONFUSION_VALUE,CONFUSION %d,ПУТАНИЦА %d
 HAMMER_CONFUSED,WRONG BOX!,МОЛОТОК СБИЛСЯ!
 MISS,MISS!,ПРОМАХ!
-SECONDS_BONUS,+10 SEC,+10 СЕК
-LIFE_BONUS,+1 LIFE,+1 ЖИЗНЬ
+SPAWN_SLOWDOWN,SPAWNS ×0.5 · 5 SEC,ПОЯВЛЕНИЕ ×0.5 · 5 СЕК
+LIFE_BONUS,+1 HAMMER,+1 МОЛОТОК
 FULL,FULL,ПОЛНО
-HINT_CLOCK,"Clock: +10 seconds, but resets combo.","Часы: +10 секунд, но комбо сбросится."
-HINT_GLUTTON,Glutton restores an apple. Do not let him escape!,Обжора вернёт яблоко. Не упусти его!
-HINT_DRUNK,Do not hit Drunk: the next strike will be random.,Не бей Пьяницу: следующий удар станет случайным.
-HINT_TAP,Tap the clown!,Тапни по клоуну!
+HINT_CLOCK,Clock: half spawn speed for 5 seconds. Series stays.,Часы: появление вдвое медленнее на 5 секунд. Серия сохраняется.
+HINT_GLUTTON,"Hit Glutton to restore a hammer. If he hides, you lose one.","Попади по Обжоре, чтобы вернуть молоток. Если спрячется — потеряешь молоток."
+HINT_DRUNK,Drunk makes the next accepted strike random.,Пьяница делает следующий принятый удар случайным.
+HINT_TAP,Tap the clown!,Нажми на клоуна!
 HINT_BOMB,BOMB! DO NOT HIT!,БОМБА! НЕ БЕЙ!
-GOLD_BONUS,+10 GOLD!,+10 ЗОЛОТО!
-BOMB_LIFE,BOMB! -1 APPLE,БОМБА! -1 ЯБЛОКО
+GOLD_BONUS,+50 GOLD!,+50 ЗОЛОТО!
+BOMB_LIFE,BOMB! -1 HAMMER,БОМБА! -1 МОЛОТОК
 TIME_LIMIT,TIME LIMIT,ЛИМИТ ВРЕМЕНИ
-APPLE_BONUS,+1 APPLE,+1 ЯБЛОКО
-APPLES_FULL,APPLES FULL,ЯБЛОКИ ПОЛНЫ
+APPLE_BONUS,+1 HAMMER,+1 МОЛОТОК
+APPLES_FULL,ALL HAMMERS RESTORED,ВСЕ МОЛОТКИ НА МЕСТЕ
 CONFUSION_STRIKES,CONFUSION: %d STRIKE,ПУТАНИЦА: %d УДАР
 GLUTTON_ESCAPED,GLUTTON ESCAPED,ОБЖОРА УБЕЖАЛ
 CLOCK_ESCAPED,CLOCK MISSED,ЧАСЫ УШЛИ
 BONUS_MISSED,BONUS MISSED,МИМО БОНУСА
 REMOVE_ADS,DISABLE ADS,ОТКЛЮЧИТЬ РЕКЛАМУ
+THREE_MISSES_LIFE,3 MISSES: -1 HAMMER,3 ПРОМАХА: -1 МОЛОТОК
+MISSES_VALUE,MISSES %d/3,ПРОМАХИ %d/3
+MISSES_WARNING,2/3 MISSES — NEXT: -1 HAMMER,2/3 — ЕЩЁ ПРОМАХ: -1 МОЛОТОК
+ATTEMPT_SERIES,BEST SERIES %d/%d,ЛУЧШАЯ СЕРИЯ %d/%d
+GOALS_MET_RECORD,Goals met — improve your record. Keep your hammers!,Цели выполнены — улучши рекорд. Береги молотки!
+RULES,RULES,ПРАВИЛА
+CAMPAIGN_COMPLETE,CIRCUS COMPLETE!,ЦИРК ПРОЙДЕН!
+RESULT_SCORE_TARGET,Score: %d / %d,Очки: %d / %d
+HISTORICAL_BEST,Historical best: %d,Исторический рекорд: %d
+NEW_RECORD,NEW RECORD!,НОВЫЙ РЕКОРД!
+FAIL_LIVES,No hammers left. Skip bombs.,Молотки закончились. Пропускай бомбы.
+FAIL_SCORE,Need more hits: %d/%d score,Нужно больше попаданий: %d/%d очков
+FAIL_SERIES,Keep hitting: best series %d/%d,Без промахов: лучшая серия %d/%d
+FAIL_GOLD,Prioritize gold: %d/%d,Лови золотых: %d/%d
+OBJECTIVES_COMPLETE,All required goals completed,Все обязательные цели выполнены
+CAMPAIGN_REPLAY,Replay to improve your score or choose a level,Улучши результат или выбери уровень
+NEXT_STAGE,Next: %s,Далее: %s
+LEVEL_NAME_1,First hit,Первый успех
+LEVEL_NAME_2,Bombs,Осторожность
+LEVEL_NAME_3,Two targets,Две цели
+LEVEL_NAME_4,Series,Серия
+LEVEL_NAME_5,Golden target,Золотая цель
+LEVEL_NAME_6,Fast reaction,Быстрая реакция
+LEVEL_NAME_7,Bonuses,Бонусы
+LEVEL_NAME_8,Mixed challenge,Смешанное испытание
+LEVEL_NAME_9,Finale,Финал
+TUTORIAL_NORMAL_TITLE,First hit,Первое попадание
+TUTORIAL_NORMAL_BODY,Tap two clowns. Each hit gives +10 points.,Нажми на двух клоунов. Каждое попадание — +10 очков.
+TUTORIAL_BOMB_TITLE,Skip the bomb,Пропускай бомбу
+TUTORIAL_BOMB_BODY,Do not hit the bomb: you’ll lose a hammer. Wait for it to hide.,"Не бей бомбу: потеряешь молоток. Подожди, пока она спрячется."
+TUTORIAL_TWO_TITLE,Two targets,Две цели
+TUTORIAL_TWO_BODY,"Tap both clowns, one at a time.",Нажми на обоих клоунов по очереди.
+TUTORIAL_SERIES_TITLE,Build a series,Собери серию
+TUTORIAL_SERIES_BODY,Hit three clowns in a row. A miss breaks the series.,Попади по трём клоунам подряд. Промах прервёт серию.
+TUTORIAL_GOLDEN_TITLE,Golden target,Золотая цель
+TUTORIAL_GOLDEN_BODY,Hit two golden clowns. Each gives +50 points.,Попади по двум золотым клоунам. Каждый даёт +50 очков.
+TUTORIAL_FAST_TITLE,Fast target,Быстрая цель
+TUTORIAL_FAST_BODY,Hit two fast clowns before they hide. Each gives +20.,"Попади по двум быстрым клоунам, пока они не спрятались. Каждый даёт +20."
+TUTORIAL_CLOCK_TITLE,Slow spawning,Замедление появления
+TUTORIAL_CLOCK_BODY,Hit the clock: clowns spawn half as fast for 5 seconds.,Нажми на часы: клоуны появляются вдвое медленнее на 5 секунд.
+TUTORIAL_GLUTTON_TITLE,Recover a hammer,Верни молоток
+TUTORIAL_GLUTTON_BODY,First let Glutton hide: you’ll lose a hammer. Then hit him to get it back.,"Сначала дай Обжоре спрятаться: потеряешь молоток. Затем попади по нему, чтобы вернуть его."
+RULES_BODY,"Normal +10, Fast +20, Golden +50. Skip bombs. Three consecutive misses cost a hammer; any hit resets misses. Clock halves spawn speed for 5 seconds. Glutton restores one hammer; its escape costs a hammer. Series never multiplies score. Each round lasts 25 seconds. Press Continue after the results to start the next round; hammers, score and series carry over. Five phases repeat from recovery to peak. Twenty clean scoring hits restore one missing hammer, once per cycle.","Обычный +10, быстрый +20, золотой +50. Бомбы пропускай. Три промаха подряд отнимают молоток; любое попадание сбрасывает промахи. Часы замедляют появление клоунов вдвое на 5 секунд. Обжора вернёт молоток; его уход отнимает молоток. Серия не умножает очки. Раунд длится 25 секунд. После результатов нажми «Продолжить»: молотки, очки и серия сохраняются. Пять фаз повторяются от отдыха до пика. В фазе отдыха 20 попаданий без ошибок вернут один потерянный молоток раз за цикл."
+HISTORICAL_RECORD_NOTE,Records include earlier balance versions,Рекорды включают прежние версии баланса
 
-THREE_MISSES_LIFE,3 MISSES: -1 LIFE,3 ПРОМАХА: -1 ЖИЗНЬ
+BEST_SERIES_SHORT,BEST %d/%d,ЛУЧ. %d/%d
+ROUND,ROUND,РАУНД
+MENU_TUTORIAL,TUTORIAL,ОБУЧЕНИЕ
+RUN_COMPLETE,NO HAMMERS LEFT,МОЛОТКИ ЗАКОНЧИЛИСЬ
+RUN_ROUNDS,Completed rounds: %d,Завершено раундов: %d
+RUN_TIME,Active time: %s,Активное время: %s
+RECOVERY_PROGRESS,Recovery %d/20,Восстановление %d/20
+TUTORIAL_ADVANCE,Next,Дальше
+MENU_RECORDS,"Score record: %d
+Series record: %d
+Completed rounds record: %d
+Active time record: %s","Рекорд очков: %d
+Рекорд серии: %d
+Рекорд завершённых раундов: %d
+Рекорд активного времени: %s"
+PHASE_RECOVERY,Recovery,Отдых
+PHASE_BUILD,Build,Разгон
+PHASE_VARIATION,Variation,Вариация
+PHASE_PRESSURE,Pressure,Напряжение
+PHASE_PEAK,Peak,Пик
+TUTORIAL_MISSES_TITLE,Safe mistakes,Безопасные ошибки
+TUTORIAL_MISSES_BODY,"Hit the clown, then tap the empty box. Three misses in a row cost one hammer.","Попади по клоуну, затем нажимай на пустую коробку. Три промаха подряд — минус молоток."
+TUTORIAL_ENDLESS_RULES_TITLE,Game,Игра
+TUTORIAL_ENDLESS_RULES_BODY,"A round lasts 25 seconds. Press Continue after the results. The game ends when you run out of hammers.
+Every five rounds, Rest begins. Restore one hammer in this round: hit Normal, Fast or Golden clowns 20 times without mistakes.","Раунд длится 25 секунд. После результатов нажми «Продолжить». Игра заканчивается, когда кончатся молотки.
+Каждые пять раундов начинается «Отдых». В нём можно вернуть один молоток: 20 раз попади по обычным, быстрым или золотым клоунам без ошибок."
+TUTORIAL_MISSES_PRACTICE,Tap the empty box three times,Нажми на пустую коробку три раза
+TUTORIAL_MISSES_RESET,"One more empty tap, then hit the clown","Ещё раз нажми на пустую коробку, затем попади по клоуну"
+TUTORIAL_GLUTTON_WAIT,Wait for Glutton to hide,"Подожди, пока Обжора спрячется"
+TUTORIAL_NEXT_HINT,Keep practicing or tap Next,Тренируйся или нажми «Дальше»
+ROUND_TRANSITION,Round %d,Раунд %d
+RECOVERY_LIFE,Recovery hammer earned,Молоток восстановлен
+CLOUD_SYNC_FAILED,Cloud sync unavailable. Local progress is kept.,Облачная синхронизация недоступна. Прогресс сохранён локально.
+TRAINING_MODE_INTRO,Let’s practice!,Потренируемся!
+ROUND_RESULT_TITLE,Round %d complete,Раунд %d завершён
+ROUND_SCORE_VALUE,Round score: %d,Очки за раунд: %d
+TOTAL_SCORE_VALUE,Total score: %d,Очков всего: %d
+ROUND_LIVES_VALUE,hammers remaining: %d,Осталось молотков: %d
+PRACTICE_LABEL,TRAINING,ОБУЧЕНИЕ
+PRACTICE_RESULT_TITLE,Training: step %d,Обучение: этап %d
+TRAINING_COMPLETE_TITLE,Training complete,Обучение завершено
+TRAINING_COMPLETE_BODY,You’re ready! Have fun playing!,Ты готов! Весёлой игры!
+START_GAME,Start game,Начать игру

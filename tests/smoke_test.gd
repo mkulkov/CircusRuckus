@@ -2,6 +2,10 @@ extends SceneTree
 
 
 func _init() -> void:
+	ProjectSettings.set_setting("clown_smash/testing/skip_tutorial", true)
+	var directory := ProjectSettings.globalize_path("res://builds/debug/verification/endless/smoke")
+	DirAccess.make_dir_recursive_absolute(directory)
+	ProjectSettings.set_setting("clown_smash/testing/save_path", directory + "/save.json")
 	call_deferred("_run")
 
 
@@ -43,9 +47,9 @@ func _run() -> void:
 
 	var menu_scene := load("res://scenes/ui/MainMenu.tscn") as PackedScene
 	var gameplay_scene := load("res://scenes/gameplay/Gameplay.tscn") as PackedScene
-	var level_one := load("res://data/levels/level_01.tres") as LevelConfig
-	if menu_scene == null or gameplay_scene == null or level_one == null:
-		push_error("SMOKE RESULT: FAIL - menu, gameplay or Level 1 resource did not load")
+	var recovery := load("res://data/round_profiles/recovery.tres") as RoundProfile
+	if menu_scene == null or gameplay_scene == null or recovery == null:
+		push_error("SMOKE RESULT: FAIL - menu, gameplay or recovery profile did not load")
 		quit(1)
 		return
 	var menu := menu_scene.instantiate()
@@ -61,7 +65,7 @@ func _run() -> void:
 	var gameplay := gameplay_scene.instantiate()
 	root.add_child(gameplay)
 	await process_frame
-	gameplay.save_manager.set_save_path_for_tests("user://clown_smash_smoke_test.json")
+	gameplay.save_manager.set_save_path_for_tests("res://builds/debug/verification/endless/smoke/interaction.json")
 	gameplay.save_manager.delete_save_for_tests()
 	gameplay.spawn_director.deterministic_seed = 1701
 	gameplay.spawn_director.stop()
@@ -84,7 +88,7 @@ func _run() -> void:
 	gameplay.queue_free()
 	await process_frame
 
-	print("SMOKE RESULT: PASS - main, StartupSplash, MainMenu, Gameplay, Level 1 and deterministic interaction")
+	print("SMOKE RESULT: PASS - main, StartupSplash, MainMenu, Gameplay, recovery and deterministic interaction")
 	scene_instance.queue_free()
 	await process_frame
 	quit(0)

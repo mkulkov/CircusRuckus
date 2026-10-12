@@ -1,16 +1,22 @@
 extends Control
 
+signal game_start_requested
+signal round_continue_requested
 signal resume_requested
 signal retry_requested
 signal menu_requested
-signal next_requested
+signal tutorial_next_requested
+signal rules_requested
+signal tutorial_continue_requested
 signal settings_requested
 
 enum OverlayMode {
 	NONE,
 	COUNTDOWN,
+	TRANSITION,
 	PAUSE,
 	RESULT,
+	TUTORIAL,
 }
 
 const DESIGN_SIZE := Vector2(1080.0, 1920.0)
@@ -27,17 +33,22 @@ const CONFETTI_COLORS: Array[Color] = [
 	Color("b65cff"), Color("ff7a22"), Color("fff4b0"), Color("ff4fd8"),
 ]
 
+var _training_complete := false
 var _mode: OverlayMode = OverlayMode.NONE
 var _countdown_text: String = ""
-var _result_won: bool = false
+var _result_details: Dictionary = {}
+var _tutorial_title: String = ""
+var _tutorial_body: String = ""
+var _tutorial_icon: Texture2D
+var _rules_button: Button
+var _continue_button: Button
 var _result_score: int = 0
 var _result_combo: int = 0
-var _result_target: int = 0
 var _result_save_error: bool = false
 var _resume_button: Button
 var _retry_button: Button
 var _menu_button: Button
-var _next_button: Button
+var _advance_button: Button
 var _settings_button: Button
 var _countdown_is_final := false
 var _countdown_burst_time := 0.0
@@ -51,7 +62,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_resume_button = _create_button(tr("RESUME"))
 	_resume_button.name = "ResumeButton"
-	_resume_button.pressed.connect(func() -> void: resume_requested.emit())
+	_resume_button.pressed.connect(_on_resume_button)
 	add_child(_resume_button)
 	_retry_button = _create_button(tr("PLAY_AGAIN"))
 	_retry_button.name = "RetryButton"
@@ -61,14 +72,22 @@ func _ready() -> void:
 	_menu_button.name = "MenuButton"
 	_menu_button.pressed.connect(func() -> void: menu_requested.emit())
 	add_child(_menu_button)
-	_next_button = _create_button(tr("NEXT"))
-	_next_button.name = "NextButton"
-	_next_button.pressed.connect(func() -> void: next_requested.emit())
-	add_child(_next_button)
+	_advance_button = _create_button(tr("TUTORIAL_ADVANCE"))
+	_advance_button.name = "TutorialAdvanceButton"
+	_advance_button.pressed.connect(func() -> void: tutorial_next_requested.emit())
+	add_child(_advance_button)
 	_settings_button = _create_button(tr("MENU_SETTINGS"))
 	_settings_button.name = "OverlaySettingsButton"
 	_settings_button.pressed.connect(func() -> void: settings_requested.emit())
 	add_child(_settings_button)
+	_rules_button = _create_button(tr("RULES"))
+	_rules_button.name = "RulesButton"
+	_rules_button.pressed.connect(func() -> void: rules_requested.emit())
+	add_child(_rules_button)
+	_continue_button = _create_button(tr("RESUME"))
+	_continue_button.name = "TutorialContinueButton"
+	_continue_button.pressed.connect(_on_continue_button)
+	add_child(_continue_button)
 	resized.connect(_layout_buttons)
 	_layout_buttons()
 	hide_overlay()
@@ -79,54 +98,133 @@ func show_countdown(text: String) -> void:
 	_countdown_is_final = not text.is_empty() and text not in ["3", "2", "1"]
 	if _countdown_is_final:
 		_start_countdown_burst()
+	_rules_button.visible = false
+	_continue_button.visible = false
 	_mode = OverlayMode.COUNTDOWN if not text.is_empty() else OverlayMode.NONE
 	mouse_filter = Control.MOUSE_FILTER_STOP if _mode != OverlayMode.NONE else Control.MOUSE_FILTER_IGNORE
 	_resume_button.visible = false
 	_retry_button.visible = false
 	_menu_button.visible = false
-	_next_button.visible = false
+	_advance_button.visible = false
 	_settings_button.visible = false
 	_layout_buttons()
 	queue_redraw()
 
 
+func _on_resume_button() -> void:
+	if is_showing_round_result():
+		round_continue_requested.emit()
+	else:
+		resume_requested.emit()
+
+
+func show_round_result(round_index: int, score: int, total_score: int, combo: int, lives: int, save_error: bool = false, practice: bool = false) -> void:
+	hide_overlay()
+	_result_details = {"round_result": true, "practice": practice, "round_index": round_index, "total_score": total_score, "lives": lives}
+	_result_score = score
+	_result_combo = combo
+	_result_save_error = save_error
+	_mode = OverlayMode.RESULT
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	_resume_button.text = tr("RESUME")
+	_resume_button.visible = true
+	_layout_buttons()
+	queue_redraw()
+
+
+func is_showing_round_result() -> bool:
+	return _mode == OverlayMode.RESULT and bool(_result_details.get("round_result", false))
+
+
 func show_pause() -> void:
+	_rules_button.visible = true
+	_continue_button.visible = false
 	_mode = OverlayMode.PAUSE
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_resume_button.visible = true
 	_retry_button.visible = true
 	_retry_button.text = tr("RESTART")
 	_menu_button.visible = true
-	_next_button.visible = false
+	_advance_button.visible = false
 	_settings_button.visible = true
+	_layout_buttons()
 	queue_redraw()
 
 
-func show_result(won: bool, score: int, max_combo: int, target_score: int, save_error: bool = false, can_advance: bool = false) -> void:
+func show_run_result(score: int, max_combo: int, rounds: int, active_seconds: float, previous_best: int, save_error: bool = false) -> void:
+	hide_overlay()
+	_result_details = {"rounds": rounds, "active_seconds": active_seconds, "previous_best": previous_best}
 	_mode = OverlayMode.RESULT
-	_result_won = won
 	_result_score = score
 	_result_combo = max_combo
-	_result_target = target_score
 	_result_save_error = save_error
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	_resume_button.visible = false
 	_retry_button.visible = true
-	_retry_button.text = tr("PLAY_AGAIN") if won else tr("RETRY")
+	_retry_button.text = tr("PLAY_AGAIN")
 	_menu_button.visible = true
-	_next_button.visible = won and can_advance and not save_error
-	_settings_button.visible = false
+	_layout_buttons()
 	queue_redraw()
+
+
+func show_transition(text: String) -> void:
+	hide_overlay()
+	_mode = OverlayMode.TRANSITION
+	_countdown_text = text
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	queue_redraw()
+
+
+func show_tutorial_advance(enabled: bool) -> void:
+	_advance_button.visible = enabled and _mode == OverlayMode.NONE
+	_layout_buttons()
+
+
+func _on_continue_button() -> void:
+	if _training_complete:
+		game_start_requested.emit()
+	else:
+		tutorial_continue_requested.emit()
+
+
+func show_training_complete() -> void:
+	show_tutorial(tr("TRAINING_COMPLETE_TITLE"), tr("TRAINING_COMPLETE_BODY"))
+	_training_complete = true
+	_continue_button.text = tr("START_GAME")
+
+
+func is_showing_training_complete() -> bool:
+	return _mode == OverlayMode.TUTORIAL and _training_complete
+
+
+func show_tutorial(title: String, body: String, icon: Texture2D = null) -> void:
+	hide_overlay()
+	_mode = OverlayMode.TUTORIAL
+	_tutorial_title = title
+	_tutorial_body = body
+	_tutorial_icon = icon
+	_continue_button.text = tr("RESUME")
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	_continue_button.visible = true
+	_layout_buttons()
+	queue_redraw()
+
+
+func is_showing_tutorial() -> bool:
+	return _mode == OverlayMode.TUTORIAL
 
 
 func hide_overlay() -> void:
+	_training_complete = false
+	_rules_button.visible = false
+	_continue_button.visible = false
 	_mode = OverlayMode.NONE
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_resume_button.visible = false
 	_retry_button.visible = false
 	_menu_button.visible = false
-	_next_button.visible = false
+	_advance_button.visible = false
 	_settings_button.visible = false
+	_layout_buttons()
 	queue_redraw()
 
 
@@ -154,8 +252,12 @@ func _draw() -> void:
 
 	if _mode == OverlayMode.COUNTDOWN:
 		_draw_countdown()
+	elif _mode == OverlayMode.TRANSITION:
+		_draw_text(_countdown_text, Rect2(100, 660, 880, 100), 54, Color.WHITE)
 	elif _mode == OverlayMode.PAUSE:
 		_draw_pause()
+	elif _mode == OverlayMode.TUTORIAL:
+		_draw_tutorial()
 	elif _mode == OverlayMode.RESULT:
 		_draw_result()
 	_draw_confetti()
@@ -245,18 +347,61 @@ func _draw_pause() -> void:
 	_draw_text(tr("PAUSE_MESSAGE"), Rect2(315.0, 720.0, 450.0, 60.0), 34, Color.WHITE)
 
 
-func _draw_result() -> void:
-	draw_rect(Rect2(Vector2.ZERO, DESIGN_SIZE), Color(0.05, 0.02, 0.10, 0.70))
+func _draw_tutorial() -> void:
+	draw_rect(Rect2(Vector2.ZERO, Vector2(DESIGN_SIZE.x, maxf(DESIGN_SIZE.y, size.y / maxf(size.x / DESIGN_SIZE.x, 0.001)))), Color(0.05, 0.02, 0.10, 0.78))
 	_draw_modal_panel()
-	var title := tr("LEVEL_COMPLETE") if _result_won else tr("LEVEL_FAILED")
-	var title_color := Color("ffe190") if _result_won else Color("ff9d86")
-	_draw_text(title, Rect2(245.0, 585.0, 590.0, 95.0), 54, title_color)
-	_draw_text(tr("SCORE_VALUE") % _result_score, Rect2(315.0, 710.0, 450.0, 60.0), 38, Color.WHITE)
-	_draw_text(tr("BEST_COMBO_VALUE") % _result_combo, Rect2(285.0, 780.0, 510.0, 60.0), 34, Color.WHITE)
-	if not _result_won:
-		_draw_text(tr("TARGET_VALUE") % _result_target, Rect2(315.0, 850.0, 450.0, 60.0), 32, Color("ffd080"))
-	elif _result_save_error:
-		_draw_text(tr("PROGRESS_NOT_SAVED"), Rect2(265.0, 850.0, 550.0, 60.0), 30, Color("ff9d86"))
+	_draw_text(_tutorial_title, Rect2(245.0, 570.0, 590.0, 80.0), 44, Color("ffe190"))
+	if _tutorial_icon != null:
+		draw_texture_rect(_tutorial_icon, Rect2(460.0, 655.0, 160.0, 160.0), false)
+	var lines := _wrap_text(_tutorial_body, 560.0, 32)
+	for index in range(lines.size()):
+		_draw_text(lines[index], Rect2(260.0, 830.0 + index * 46.0, 560.0, 46.0), 32, Color.WHITE)
+
+
+func _wrap_text(text: String, width: float, font_size: int) -> Array[String]:
+	var lines: Array[String] = []
+	var font := ThemeDB.fallback_font
+	for paragraph in text.split("\n"):
+		var line := ""
+		for word in paragraph.split(" "):
+			var candidate := word if line.is_empty() else line + " " + word
+			if not line.is_empty() and font.get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > width:
+				lines.append(line)
+				line = word
+			else:
+				line = candidate
+		lines.append(line)
+	return lines
+
+
+func _draw_result() -> void:
+	draw_rect(Rect2(Vector2.ZERO, Vector2(DESIGN_SIZE.x, maxf(DESIGN_SIZE.y, size.y / maxf(size.x / DESIGN_SIZE.x, 0.001)))), Color(0.05, 0.02, 0.10, 0.70))
+	_draw_modal_panel()
+	var title := tr("PRACTICE_RESULT_TITLE" if bool(_result_details.get("practice", false)) else "ROUND_RESULT_TITLE") % int(_result_details.round_index) if is_showing_round_result() else tr("RUN_COMPLETE")
+	_draw_text(title, Rect2(245.0, 565.0, 590.0, 85.0), 46, Color("ffe190"))
+	var lines := _get_result_lines()
+	for index in range(lines.size()):
+		_draw_text(lines[index], Rect2(240.0, 670.0 + index * 48.0, 600.0, 46.0), 30, Color.WHITE)
+
+
+func _get_result_lines() -> Array[String]:
+	if is_showing_round_result():
+		var round_lines: Array[String] = [tr("ROUND_SCORE_VALUE") % _result_score, tr("TOTAL_SCORE_VALUE") % int(_result_details.total_score), tr("BEST_COMBO_VALUE") % _result_combo, tr("ROUND_LIVES_VALUE") % int(_result_details.lives)]
+		if _result_save_error:
+			round_lines.append(tr("PROGRESS_NOT_SAVED"))
+		return round_lines
+	var total := maxi(0, floori(float(_result_details.get("active_seconds", 0.0))))
+	var duration := "%d:%02d" % [total / 60, total % 60]
+	var previous_best := int(_result_details.get("previous_best", 0))
+	var lines: Array[String] = [tr("SCORE_VALUE") % _result_score, tr("HISTORICAL_BEST") % previous_best, tr("BEST_COMBO_VALUE") % _result_combo, tr("RUN_ROUNDS") % int(_result_details.get("rounds", 0)), tr("RUN_TIME") % duration]
+	if _result_score > previous_best and not _result_save_error:
+		lines.append(tr("NEW_RECORD"))
+	if _result_save_error:
+		lines.append(tr("PROGRESS_NOT_SAVED"))
+	var wrapped: Array[String] = []
+	for line in lines:
+		wrapped.append_array(_wrap_text(line, 580.0, 30))
+	return wrapped
 
 
 func _draw_modal_panel() -> void:
@@ -266,16 +411,18 @@ func _draw_modal_panel() -> void:
 
 func _get_modal_panel_rect() -> Rect2:
 	var action_count := 0
-	for button in [_resume_button, _retry_button, _next_button, _menu_button, _settings_button]:
+	for button in [_resume_button, _retry_button, _advance_button, _menu_button, _settings_button, _rules_button, _continue_button]:
 		if button != null and button.visible:
 			action_count += 1
-	var action_start_y := 940.0 if _mode == OverlayMode.RESULT else 800.0
+	var action_start_y := _get_action_start_y()
 	var panel_bottom := action_start_y + action_count * ACTION_SIZE.y + maxi(0, action_count - 1) * ACTION_GAP + PANEL_BOTTOM_PADDING
 	return Rect2(PANEL_X, PANEL_TOP, PANEL_WIDTH, panel_bottom - PANEL_TOP)
 
 
 func _draw_text(text: String, rect: Rect2, font_size: int, color: Color) -> void:
-	CircusUIStyle.draw_text(self, text, rect, font_size, color, 3)
+	var measured := ThemeDB.fallback_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	var fitted := font_size if measured <= rect.size.x else maxi(12, floori(font_size * rect.size.x / measured))
+	CircusUIStyle.draw_text(self, text, rect, fitted, color, 3)
 
 
 func _create_button(text: String) -> Button:
@@ -287,22 +434,37 @@ func _create_button(text: String) -> Button:
 	return button
 
 
+func _get_action_start_y() -> float:
+	if _mode == OverlayMode.RESULT:
+		return maxf(1060.0, 680.0 + _get_result_lines().size() * 48.0)
+	if _mode == OverlayMode.TUTORIAL:
+		return maxf(1050.0, 840.0 + _wrap_text(_tutorial_body, 560.0, 32).size() * 46.0)
+	return 800.0
+
+
 func _layout_buttons() -> void:
 	if _resume_button == null:
 		return
 	var scale_factor := size.x / DESIGN_SIZE.x
-	var action_start_y := 940.0 if _mode == OverlayMode.RESULT else 800.0
+	if _mode == OverlayMode.NONE:
+		var hud_offset := 0.0 if OS.has_feature("web") else 28.0
+		_advance_button.position = Vector2(310, 334 + hud_offset) * scale_factor
+		_advance_button.size = ACTION_SIZE * scale_factor
+		_advance_button.add_theme_font_size_override("font_size", maxi(16, roundi(30 * scale_factor)))
+		return
+	var action_start_y := _get_action_start_y()
 	var visible_buttons: Array[Button] = []
-	for button in [_resume_button, _retry_button, _next_button, _menu_button, _settings_button]:
+	for button in [_resume_button, _retry_button, _advance_button, _menu_button, _settings_button, _rules_button, _continue_button]:
 		if button.visible:
 			visible_buttons.append(button)
 	for index in range(visible_buttons.size()):
 		var button := visible_buttons[index]
 		button.position = Vector2(310.0, action_start_y + index * (ACTION_SIZE.y + ACTION_GAP)) * scale_factor
 		button.size = ACTION_SIZE * scale_factor
+		button.add_theme_font_size_override("font_size", maxi(16, roundi(34.0 * scale_factor)))
 	_settings_button.size = Vector2(460.0, 90.0) * scale_factor
 	_resume_button.add_theme_font_size_override("font_size", maxi(20, roundi(34.0 * scale_factor)))
 	_retry_button.add_theme_font_size_override("font_size", maxi(20, roundi(34.0 * scale_factor)))
-	_next_button.add_theme_font_size_override("font_size", maxi(20, roundi(31.0 * scale_factor)))
+	_advance_button.add_theme_font_size_override("font_size", maxi(20, roundi(31.0 * scale_factor)))
 	_menu_button.add_theme_font_size_override("font_size", maxi(20, roundi(31.0 * scale_factor)))
 	_settings_button.add_theme_font_size_override("font_size", maxi(20, roundi(31.0 * scale_factor)))

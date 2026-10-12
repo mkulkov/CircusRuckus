@@ -7,10 +7,11 @@ signal product_info_changed
 signal platform_pause_requested
 signal platform_resume_requested
 signal banner_status_changed(visible: bool, reason: String)
-signal ads_unavailable
 
 const REMOVE_ADS_PRODUCT := "remove_ads"
-const AD_PLACEMENT_LEVEL_START := "level_start"
+const AD_PLACEMENT_CYCLE_END := "cycle_end"
+const AD_PLACEMENT_LOSS_RETRY := "loss_retry"
+const ANALYTICS := preload("res://scripts/analytics/analytics_events.gd")
 
 var ads_removed: bool = false
 var _purchases_disabled := false
@@ -18,8 +19,14 @@ var _save_manager: Node
 var _audio_manager: Node
 var _adapter: MonetizationAdapter
 var _demo_presenter: MonetizationDemoPresenter
+var _banner_allowed := false
+var _active_seconds_since_ad := 0.0
+var _last_ad_attempt_msec := -60000
+var _ad_request_generation := 0
+var _pending_placement := ""
 var _pending_interstitial: Callable
-var _pending_level_id := 0
+var _pending_run_ad_eligible := false
+var _pending_ad_show_started := false
 var _purchase_pending := false
 var _audio_muted_for_ad := false
 var _music_was_muted := false
@@ -33,6 +40,8 @@ var _remove_ads_price := ""
 var _remove_ads_title := ""
 var _remove_ads_currency_icon: Texture2D
 var _currency_icon_request: HTTPRequest
+var _analytics_ad_operation := ""
+var _analytics_purchase_operation := ""
 
 func configure(save_manager: Node, audio_manager: Node = null) -> void:
 	_save_manager = save_manager
@@ -78,7 +87,7 @@ func refresh_saved_state() -> void:
 	if _save_manager != null and not (OS.has_feature("vk_mini_apps") and not OS.has_feature("monetization_demo")):
 		ads_removed = bool(_save_manager.load_data().get("ads_removed", false))
 	if _adapter_ready:
-		_set_banner_visible(not ads_removed)
+		_set_banner_visible(_banner_allowed and not ads_removed)
 
 func _select_adapter() -> MonetizationAdapter:
 	if OS.has_feature("monetization_demo"):
@@ -99,7 +108,7 @@ func _on_adapter_initialized(success: bool) -> void:
 		_adapter.load_catalog()
 		_adapter.restore_entitlements()
 	if not ads_removed:
-		_set_banner_visible(true)
+		_set_banner_visible(_banner_allowed)
 
 func is_ads_removed() -> bool:
 	return ads_removed
@@ -139,37 +148,69 @@ func get_remove_ads_currency_icon() -> Texture2D:
 	return _remove_ads_currency_icon
 
 func show_banner(visible: bool = true) -> void:
-	if _adapter == null or (visible and ads_removed):
-		return
-	_set_banner_visible(visible)
+	_banner_allowed = visible
+	if _adapter != null:
+		_set_banner_visible(visible and not ads_removed)
 
-func show_level_start_ad(level_id: int, on_finished: Callable) -> void:
-	var first_level_is_ad_free := level_id <= 1
-	if ads_removed or _adapter == null or (first_level_is_ad_free and _adapter.platform_name != "vk"):
+func record_active_play(elapsed: float) -> void:
+	if is_finite(elapsed) and elapsed > 0.0:
+		_active_seconds_since_ad = minf(_active_seconds_since_ad + elapsed, 604800.0)
+
+func show_transition_ad(placement: String, on_finished: Callable, completed_rounds: int = 0, run_seconds: float = 0.0) -> void:
+	if _pending_interstitial.is_valid():
+		return
+	var interval := maxf(float(ProjectSettings.get_setting("monetization/policy/active_interval_seconds", 120.0)), 120.0)
+	var cycle_length := maxi(int(ProjectSettings.get_setting("monetization/policy/cycle_rounds", 5)), 1)
+	var valid_placement := (placement == AD_PLACEMENT_CYCLE_END and completed_rounds > 0 and completed_rounds % cycle_length == 0) or (placement == AD_PLACEMENT_LOSS_RETRY and run_seconds >= interval)
+	var retry_msec := int(maxf(float(ProjectSettings.get_setting("monetization/policy/retry_backoff_seconds", 60.0)), 30.0) * 1000.0)
+	if not valid_placement or ads_removed or not _adapter_ready or _active_seconds_since_ad < interval or Time.get_ticks_msec() - _last_ad_attempt_msec < retry_msec:
+		on_finished.call()
+		return
+	_last_ad_attempt_msec = Time.get_ticks_msec()
+	_pending_placement = placement
+	show_run_start_ad(on_finished)
+
+func _watch_ad_request(generation: int) -> void:
+	await get_tree().create_timer(maxf(float(ProjectSettings.get_setting("monetization/policy/request_timeout_seconds", 30.0)), 1.0), true, false, true).timeout
+	if generation != _ad_request_generation or not _pending_interstitial.is_valid():
+		return
+	# An opened provider owns its close callback; never resume under a visible ad.
+	if _audio_pause_reasons.has(&"interstitial"):
+		return
+	_adapter.cancel_ad_request()
+	_set_audio_pause_reason(&"interstitial", false)
+	_complete_pending_run()
+
+func show_run_start_ad(on_finished: Callable, ad_free: bool = false) -> void:
+	if ads_removed or _adapter == null or ad_free:
 		on_finished.call()
 		return
 	if _pending_interstitial.is_valid():
 		return
 	_pending_interstitial = on_finished
-	_pending_level_id = level_id
+	_ad_request_generation += 1
+	if is_inside_tree():
+		_watch_ad_request(_ad_request_generation)
+	_pending_run_ad_eligible = true
 	if _adapter.platform_name in ["vk", "ok"]:
 		_adapter.check_ad_availability()
 		return
 	_show_pending_interstitial()
 
 func _on_ad_availability_checked(available: bool) -> void:
-	if not _pending_interstitial.is_valid():
+	if not _pending_interstitial.is_valid() or _pending_ad_show_started:
 		return
-	if ads_removed or (available and _pending_level_id <= 1):
-		_complete_pending_level()
-	elif available:
-		_show_pending_interstitial()
-	elif _adapter != null and _adapter.platform_name == "ok":
-		_complete_pending_level()
+	if ads_removed or not available or not _pending_run_ad_eligible:
+		_complete_pending_run()
 	else:
-		ads_unavailable.emit()
+		_show_pending_interstitial()
 
 func _show_pending_interstitial() -> void:
+	if _pending_ad_show_started:
+		return
+	_pending_ad_show_started = true
+	_analytics_ad_operation = ANALYTICS.new_operation()
+	ANALYTICS.record("ad_requested", {"placement": "default", "ad_type": "interstitial"}, _analytics_ad_operation)
 	if _demo_presenter != null:
 		_demo_presenter.show_interstitial(_adapter.show_interstitial)
 	else:
@@ -179,32 +220,59 @@ func purchase_remove_ads() -> void:
 	if _purchases_disabled or ads_removed or _purchase_pending or _adapter == null:
 		return
 	_purchase_pending = true
+	_analytics_purchase_operation = ANALYTICS.new_operation()
+	ANALYTICS.record("purchase_started", {"product_id": REMOVE_ADS_PRODUCT}, _analytics_purchase_operation)
 	_adapter.purchase(REMOVE_ADS_PRODUCT)
 
 func _on_interstitial_finished(success: bool) -> void:
-	_set_audio_pause_reason(&"interstitial", false)
-	if not success and not ads_removed and _adapter != null and _adapter.platform_name == "vk" and _pending_interstitial.is_valid():
-		ads_unavailable.emit()
+	if not _pending_interstitial.is_valid() or not _pending_ad_show_started:
 		return
-	_complete_pending_level()
+	if success:
+		_active_seconds_since_ad = 0.0
+	var operation := _analytics_ad_operation
+	_analytics_ad_operation = ""
+	_set_audio_pause_reason(&"interstitial", false)
+	_complete_pending_run()
+	_record_ad_failure(success, operation)
 
-func cancel_pending_level() -> void:
+
+func _record_ad_failure(success: bool, operation: String) -> void:
+	if not success and not operation.is_empty():
+		ANALYTICS.record("ad_failed", {"placement": "default", "reason": "error"}, operation)
+
+func cancel_pending_run() -> void:
+	_ad_request_generation += 1
+	_set_audio_pause_reason(&"interstitial", false)
+	if _adapter != null:
+		_adapter.cancel_ad_request()
 	_pending_interstitial = Callable()
-	_pending_level_id = 0
+	_pending_run_ad_eligible = false
+	_pending_ad_show_started = false
+	_analytics_ad_operation = ""
 
-func continue_pending_level_after_purchase() -> void:
-	if ads_removed:
-		_complete_pending_level()
+func continue_pending_run_after_purchase() -> void:
+	if ads_removed and not _audio_pause_reasons.has(&"interstitial"):
+		if _adapter != null:
+			_adapter.cancel_ad_request()
+		_complete_pending_run()
 
-func _complete_pending_level() -> void:
+func _complete_pending_run() -> void:
+	_ad_request_generation += 1
+	_pending_placement = ""
 	var callback := _pending_interstitial
 	_pending_interstitial = Callable()
-	_pending_level_id = 0
+	_pending_run_ad_eligible = false
+	_pending_ad_show_started = false
 	if callback.is_valid():
 		callback.call()
 
 func _on_interstitial_opened() -> void:
+	if not _pending_interstitial.is_valid() or not _pending_ad_show_started:
+		return
 	_set_audio_pause_reason(&"interstitial", true)
+	# Only Yandex forwards SDK onOpen. Android/VK announce before showing.
+	if _adapter != null and _adapter.platform_name == "yandex" and not _analytics_ad_operation.is_empty():
+		ANALYTICS.record("ad_started", {"placement": "default", "ad_type": "interstitial"}, _analytics_ad_operation)
 
 func _set_audio_pause_reason(reason: StringName, active: bool) -> void:
 	if active:
@@ -253,6 +321,8 @@ func _on_banner_status_changed(visible: bool, reason: String) -> void:
 	banner_status_changed.emit(visible, reason)
 
 func _on_purchase_finished(success: bool, product_id: String) -> void:
+	var operation := _analytics_purchase_operation
+	_analytics_purchase_operation = ""
 	_purchase_pending = false
 	if success and product_id == REMOVE_ADS_PRODUCT:
 		ads_removed = true
@@ -260,16 +330,23 @@ func _on_purchase_finished(success: bool, product_id: String) -> void:
 			_save_manager.set_ads_removed(true)
 		_set_banner_visible(false)
 		entitlement_changed.emit(true)
+		continue_pending_run_after_purchase()
+		if not operation.is_empty():
+			ANALYTICS.record("purchase_completed", {"product_id": REMOVE_ADS_PRODUCT}, operation)
 		return
 	purchase_failed.emit()
+	if not operation.is_empty():
+		ANALYTICS.record("purchase_failed", {"product_id": REMOVE_ADS_PRODUCT, "reason": "error"}, operation)
 
 
 func _on_entitlement_restored(owned: bool) -> void:
 	ads_removed = owned
 	if _save_manager != null:
 		_save_manager.set_ads_removed(owned)
-	_set_banner_visible(not owned)
+	_set_banner_visible(_banner_allowed and not owned)
 	entitlement_changed.emit(owned)
+	if owned:
+		continue_pending_run_after_purchase()
 
 
 func _on_product_info_updated(product_id: String, title: String, price: String, currency_icon_url: String) -> void:

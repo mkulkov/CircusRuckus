@@ -2,7 +2,7 @@ param(
     [ValidateSet('Dev', 'Prod', 'Both')]
     [string]$Target = 'Dev',
 
-    [string]$BuildDirectory = (Join-Path $PSScriptRoot '..\..\builds\vk'),
+    [string]$BuildDirectory = '',
 
     [switch]$ValidateOnly
 )
@@ -22,6 +22,31 @@ $expectedFiles = @(
 )
 $deployDirectory = $PSScriptRoot
 $configPath = Join-Path $deployDirectory 'vk-hosting-config.json'
+if (-not $BuildDirectory) {
+    $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+    switch ($Target) {
+        'Both' { throw 'Pass -BuildDirectory explicitly when deploying to Both.' }
+        'Dev' { $BuildDirectory = Join-Path $projectRoot 'builds/debug/vk' }
+        'Prod' {
+            $manifestPath = Join-Path $projectRoot 'builds/release/manifest.json'
+            if (-not (Test-Path -LiteralPath $manifestPath)) { throw 'No release manifest; pass a verified release -BuildDirectory explicitly.' }
+            $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+            $entries = if ($manifest.PSObject.Properties['releases']) { @($manifest.releases) } elseif ($manifest.PSObject.Properties['entries']) { @($manifest.entries) } else { @($manifest) }
+            foreach ($entry in @($entries | Where-Object platform -eq 'vk' | Sort-Object { [int]$_.version_code } -Descending)) {
+                $relativePath = if ($entry.PSObject.Properties['path']) { $entry.path } else { $entry.relative_path }
+                if (-not $relativePath -or -not $entry.sha256) { continue }
+                $artifact = [IO.Path]::GetFullPath((Join-Path $projectRoot $relativePath))
+                $releaseRoot = [IO.Path]::GetFullPath((Join-Path $projectRoot 'builds/release/vk')) + [IO.Path]::DirectorySeparatorChar
+                if (-not $artifact.StartsWith($releaseRoot, [StringComparison]::OrdinalIgnoreCase)) { continue }
+                if (-not (Test-Path -LiteralPath $artifact -PathType Leaf)) { continue }
+                if ((Get-FileHash -LiteralPath $artifact -Algorithm SHA256).Hash -ine $entry.sha256) { continue }
+                $runtime = if ($entry.PSObject.Properties['runtime_directory'] -and $entry.runtime_directory) { [IO.Path]::GetFullPath((Join-Path $projectRoot $entry.runtime_directory)) } elseif ([IO.Path]::GetExtension($artifact) -eq '.zip') { Join-Path (Split-Path -Parent $artifact) ([IO.Path]::GetFileNameWithoutExtension($artifact)) } else { Split-Path -Parent $artifact }
+                if ($runtime.StartsWith($releaseRoot, [StringComparison]::OrdinalIgnoreCase) -and (Test-Path -LiteralPath (Join-Path $runtime 'index.html') -PathType Leaf)) { $BuildDirectory = $runtime; break }
+            }
+            if (-not $BuildDirectory) { throw 'No valid VK release artifact and runtime directory found in manifest.' }
+        }
+    }
+}
 $resolvedBuildDirectory = (Resolve-Path -LiteralPath $BuildDirectory).Path
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue) -or

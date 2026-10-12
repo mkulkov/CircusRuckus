@@ -27,6 +27,10 @@ class TestSaveFileAccess:
 
 
 func _init() -> void:
+	ProjectSettings.set_setting("clown_smash/testing/skip_tutorial", true)
+	var isolated := ProjectSettings.globalize_path("res://builds/debug/verification/endless/full")
+	DirAccess.make_dir_recursive_absolute(isolated)
+	ProjectSettings.set_setting("clown_smash/testing/save_path", isolated.path_join("save.json"))
 	call_deferred("_run")
 
 
@@ -38,7 +42,7 @@ func _run() -> void:
 	_test_consecutive_misses()
 	_test_all_character_rules()
 	_test_save_data_defaults()
-	_test_save_data_record_completed_level()
+	_test_save_data_record_run()
 	_test_save_settings_round_trip()
 	await _test_monetization_demo_contract()
 	await _test_vk_ad_gate()
@@ -47,8 +51,8 @@ func _run() -> void:
 	_test_save_data_semantic_validation()
 	_test_save_data_write_failure_and_rollback()
 	_test_save_data_write_failure_with_open_file()
-	_test_level_one_config()
-	_test_all_level_configs_and_assets()
+	_test_recovery_profile()
+	_test_all_round_profiles_and_assets()
 	await _test_session_rules()
 	await _test_main_scene_loads()
 	await _test_menu_and_navigation_flow()
@@ -69,59 +73,73 @@ func _run() -> void:
 
 
 func _test_vk_ad_gate() -> void:
+	var web_adapter := WebMonetizationAdapter.new()
+	var callbacks := {"availability": 0, "finished": 0, "opened": 0}
+	web_adapter.ad_availability_checked.connect(func(_available: bool) -> void: callbacks.availability += 1)
+	web_adapter.interstitial_finished.connect(func(_success: bool) -> void: callbacks.finished += 1)
+	web_adapter.interstitial_opened.connect(func() -> void: callbacks.opened += 1)
+	web_adapter.cancel_ad_request()
+	web_adapter._on_ad_availability(['{"available":true}'], 0)
+	web_adapter._on_interstitial_finished(['{"success":true}'], 0)
+	web_adapter._on_interstitial_opened([], 0)
+	_expect_true(callbacks.availability == 0 and callbacks.finished == 0 and callbacks.opened == 0, "Cancelled web ad callbacks cannot affect a newer request")
+	web_adapter._on_ad_availability(['{"available":false}'], 1)
+	web_adapter._on_ad_availability(['{"available":true}'], 1)
+	_expect_true(callbacks.availability == 1, "Web inventory completion ignores duplicate callback")
+	web_adapter._on_interstitial_finished(['{"success":false}'], 2)
+	web_adapter._on_interstitial_finished(['{"success":true}'], 2)
+	web_adapter._on_interstitial_opened([], 2)
+	_expect_true(callbacks.finished == 1 and callbacks.opened == 0, "Web timeout or cancellation ignores late ad completion and opening")
 	var service := MonetizationService.new()
 	var adapter := MonetizationAdapter.new()
 	adapter.platform_name = "vk"
 	service._adapter = adapter
-	var state := {"continued": 0, "blocked": 0}
-	service.ads_unavailable.connect(func() -> void: state.blocked += 1)
-	service.show_level_start_ad(1, func() -> void: state.continued += 1)
+	var state := {"continued": 0}
+	service.show_run_start_ad(func() -> void: state.continued += 1, true)
+	_expect_true(state.continued == 1 and not service._pending_interstitial.is_valid(), "Ad-free post-training run starts without an inventory check")
 	service._on_ad_availability_checked(false)
-	_expect_true(state.blocked == 1 and state.continued == 0, "VK unavailable ads block level entry")
-	service.continue_pending_level_after_purchase()
-	_expect_true(state.continued == 0, "Unconfirmed purchase cannot pass ad gate")
-	service._on_interstitial_finished(false)
-	_expect_true(state.continued == 0, "Failed VK ad does not start level")
-	service.ads_removed = true
-	service.continue_pending_level_after_purchase()
-	service.continue_pending_level_after_purchase()
-	_expect_true(state.continued == 1, "Owned purchase resumes pending level exactly once")
-	service.show_level_start_ad(2, func() -> void: state.continued += 1)
-	_expect_true(state.continued == 2, "Owned purchase bypasses VK ad check")
-	service.ads_removed = false
-	service.show_level_start_ad(2, func() -> void: state.continued += 1)
-	service.cancel_pending_level()
+	_expect_true(state.continued == 1, "Late inventory callback cannot reopen an ad-free run")
+	service.show_run_start_ad(func() -> void: state.continued += 1)
+	service.continue_pending_run_after_purchase()
+	_expect_true(state.continued == 1, "Unconfirmed purchase cannot complete pending ad")
+	service._on_ad_availability_checked(false)
+	service._on_ad_availability_checked(false)
+	_expect_true(state.continued == 2, "VK unavailable inventory starts run exactly once without purchase")
+	service.show_run_start_ad(func() -> void: state.continued += 1)
 	service._on_ad_availability_checked(true)
-	_expect_true(state.continued == 2, "Exiting cancels pending level and ignores late response")
+	service._on_ad_availability_checked(false)
+	_expect_true(state.continued == 2, "Available VK ad waits for provider completion")
+	service._on_interstitial_finished(false)
+	service._on_interstitial_finished(false)
+	_expect_true(state.continued == 3, "Failed or cancelled VK ad starts run exactly once")
+	service.ads_removed = true
+	service.continue_pending_run_after_purchase()
+	service.continue_pending_run_after_purchase()
+	_expect_true(state.continued == 3, "Entitlement callbacks cannot repeat completed navigation")
+	service.show_run_start_ad(func() -> void: state.continued += 1)
+	_expect_true(state.continued == 4, "Owned purchase bypasses VK ad check")
+	service.ads_removed = false
+	service.show_run_start_ad(func() -> void: state.continued += 1)
+	service.cancel_pending_run()
+	service._on_ad_availability_checked(true)
+	_expect_true(state.continued == 4, "Exiting cancels pending run and ignores late response")
 	adapter.platform_name = "ok"
-	service.show_level_start_ad(1, func() -> void: state.continued += 1)
+	service.show_run_start_ad(func() -> void: state.continued += 1, true)
 	service._on_ad_availability_checked(false)
-	_expect_true(state.continued == 3 and state.blocked == 2, "OK unavailable ads allow first level without purchasing")
-	service.show_level_start_ad(2, func() -> void: state.continued += 1)
+	_expect_true(state.continued == 5, "OK ad-free run continues without purchasing")
+	service.show_run_start_ad(func() -> void: state.continued += 1)
 	service._on_ad_availability_checked(false)
-	_expect_true(state.continued == 4, "OK unavailable ads allow later levels")
-	service.show_level_start_ad(2, func() -> void: state.continued += 1)
+	_expect_true(state.continued == 6, "OK unavailable ads allow new runs")
+	service.show_run_start_ad(func() -> void: state.continued += 1)
+	service._on_ad_availability_checked(true)
 	service._on_interstitial_finished(false)
 	service._on_interstitial_finished(false)
-	_expect_true(state.continued == 5, "Failed OK interstitial continues exactly once")
+	_expect_true(state.continued == 7, "Failed OK interstitial continues exactly once")
 	service.free()
-	var dialog := load("res://scripts/ui/ads_unavailable_dialog.gd").new() as CanvasLayer
-	root.add_child(dialog)
-	await process_frame
-	dialog.set_purchase_available(true, "299 голосов VK")
-	_expect_true(not dialog._purchase.disabled and dialog._purchase.text.contains("299"), "Ad gate shows server price and available purchase")
-	dialog.set_pending()
-	_expect_true(dialog._purchase.disabled and dialog._exit.disabled, "Ad gate prevents duplicate purchase and exit while payment pending")
-	dialog.show_purchase_failure()
-	dialog.set_purchase_available(true, "299 голосов VK")
-	_expect_true(not dialog._exit.disabled and not dialog._purchase.disabled, "Cancelled purchase permits retry or exit")
-	dialog.queue_free()
-	await process_frame
-
 func _test_monetization_demo_contract() -> void:
 	var save_manager_script := load("res://scripts/save/save_manager.gd") as GDScript
 	var save_manager := save_manager_script.new() as Node
-	var test_path := "user://clown_smash_monetization_demo_test.json"
+	var test_path := "res://builds/debug/verification/endless/full/clown_smash_monetization_demo_test.json"
 	save_manager.set_save_path_for_tests(test_path)
 	save_manager.delete_save_for_tests()
 
@@ -169,13 +187,13 @@ func _test_monetization_demo_contract() -> void:
 	restarted_service.configure(save_manager)
 	_expect_true(restarted_service.is_ads_removed(), "Restart restores ads_removed from the saved entitlement")
 	var level_opened := [false]
-	restarted_service.show_level_start_ad(2, func() -> void: level_opened[0] = true)
-	_expect_true(bool(level_opened[0]), "Restored ads_removed bypasses the level-start ad")
+	restarted_service.show_run_start_ad(func() -> void: level_opened[0] = true)
+	_expect_true(bool(level_opened[0]), "Restored ads_removed bypasses run-start ad")
 	var first_level_opened := [false]
 	restarted_service.ads_removed = false
-	restarted_service.show_level_start_ad(1, func() -> void: first_level_opened[0] = true)
-	_expect_true(bool(first_level_opened[0]), "Level 1 never requests an in-game interstitial")
-	_expect_true(not restarted_service._pending_interstitial.is_valid(), "Level 1 leaves no pending interstitial request")
+	restarted_service.show_run_start_ad(func() -> void: first_level_opened[0] = true, true)
+	_expect_true(bool(first_level_opened[0]), "Post-training ad-free entry never requests interstitial")
+	_expect_true(not restarted_service._pending_interstitial.is_valid(), "Ad-free entry leaves no pending interstitial request")
 
 	var presenter := MonetizationDemoPresenter.new()
 	root.add_child(presenter)
@@ -220,19 +238,18 @@ func _test_yandex_platform_contract() -> void:
 	var save_manager_script := load("res://scripts/save/save_manager.gd") as GDScript
 	var manager := save_manager_script.new() as Node
 	var local_data: Dictionary = manager.DEFAULT_DATA.duplicate(true)
-	local_data["highest_unlocked_level"] = 3
-	local_data["completed_levels"] = [1, 2]
-	local_data["best_scores"] = {"1": 300, "2": 200}
+	local_data["best_run_score"] = 300
+	local_data["learned_lessons"] = ["normal"]
 	var cloud_data: Dictionary = manager.DEFAULT_DATA.duplicate(true)
-	cloud_data["highest_unlocked_level"] = 2
-	cloud_data["completed_levels"] = [1]
-	cloud_data["best_scores"] = {"1": 250}
+	cloud_data["best_run_score"] = 250
+	cloud_data["best_run_combo"] = 10
+	cloud_data["learned_lessons"] = ["bomb"]
 	cloud_data["music_enabled"] = false
 	var merged: Dictionary = manager._merge_save_data(local_data, cloud_data)
-	_expect_equal(merged["highest_unlocked_level"], 3, "Cloud merge preserves the highest unlocked level")
-	_expect_equal(merged["completed_levels"], [1, 2], "Cloud merge preserves completed levels from both stores")
-	_expect_equal(merged["best_scores"]["1"], 300, "Cloud merge preserves the best score")
-	_expect_true(not bool(merged["music_enabled"]), "Cloud settings win when a valid cloud save exists")
+	_expect_equal(merged["best_run_score"], 300, "Cloud merge preserves score maximum")
+	_expect_equal(merged["best_run_combo"], 10, "Cloud merge preserves independent series maximum")
+	_expect_true(merged.learned_lessons.has("normal") and merged.learned_lessons.has("bomb"), "Cloud merges lesson mastery")
+	_expect_true(not bool(merged["music_enabled"]), "Cloud settings retain their policy")
 	manager.free()
 
 
@@ -322,11 +339,11 @@ func _test_audio_manager() -> void:
 	_expect_equal(manager.get_music_track_count(), 2, "Two background music tracks are registered")
 	_expect_equal(manager.get_clown_miss_sound_count(), 2, "Two clown-miss sounds are registered")
 	manager.set_music_random_seed_for_tests(20260912)
-	manager.play_music_for_level(1)
+	manager.play_music_for_run()
 	var first_music_track: String = manager.get_current_music_track_path()
-	_expect_true(first_music_track.ends_with(".ogg"), "Level music uses an imported OGG track")
-	manager.play_music_for_level(2)
-	_expect_true(first_music_track != manager.get_current_music_track_path(), "Consecutive levels do not repeat the same music track")
+	_expect_true(first_music_track.ends_with(".ogg"), "Run music uses an imported OGG track")
+	manager.play_music_for_run()
+	_expect_true(first_music_track != manager.get_current_music_track_path(), "Consecutive runs do not repeat the same music track")
 	var events: Array[StringName] = [
 		&"box_pop", &"hammer_bonk", &"correct_hit", &"empty_hit", &"bomb", &"life_lost",
 		&"clock", &"apple_restore", &"glutton_escape", &"clown_miss", &"drunk", &"combo", &"countdown",
@@ -368,35 +385,21 @@ func _test_main_scene_loads() -> void:
 
 
 func _test_menu_and_navigation_flow() -> void:
-	var menu_scene := load("res://scenes/ui/MainMenu.tscn") as PackedScene
-	var level_select_scene := load("res://scenes/ui/LevelSelect.tscn") as PackedScene
-	_expect_true(menu_scene != null, "Main Menu scene exists")
-	_expect_true(level_select_scene != null, "Level Select scene exists")
-	if menu_scene == null or level_select_scene == null:
-		return
-	var menu := menu_scene.instantiate()
+	var menu := (load("res://scenes/ui/MainMenu.tscn") as PackedScene).instantiate()
 	root.add_child(menu)
 	await process_frame
-	_expect_true(menu.has_method("configure"), "Main Menu accepts persisted progress")
-	_expect_true(menu.get_node_or_null("PlayButton") != null, "Main Menu exposes Play action")
-	_expect_true(menu.get_node_or_null("LevelsButton") != null, "Main Menu exposes Levels action")
-	_expect_true(menu.get_node_or_null("SettingsButton") != null, "Main Menu exposes Settings action")
-	_expect_true(menu.get_node_or_null("AboutButton") != null, "Main Menu exposes About action")
-	_expect_true(menu.get_node_or_null("MenuPanel") == null, "Main Menu has no enclosing action frame")
-	_expect_true(menu.get_node_or_null("RemoveAdsButton") == null, "Main Menu puts Remove Ads offer in Settings")
+	menu.configure({"best_run_score": 9007199254740991, "best_run_combo": 200, "best_run_rounds": 1000, "best_run_active_seconds": 45000.0})
+	for action in ["PlayButton", "TutorialButton", "SettingsButton", "StatisticsButton"]:
+		_expect_true(menu.get_node_or_null(action) != null, "Main menu exposes " + action)
+	_expect_true(menu.get_node_or_null("AboutButton") == null and menu.get_node_or_null("AboutPanel") == null, "About screen and button are removed")
+	_expect_true(menu.get_node_or_null("LevelsButton") == null, "Campaign selection is removed")
+	var requests := {"play": 0, "tutorial": 0}
+	menu.play_requested.connect(func() -> void: requests.play += 1)
+	menu.tutorial_requested.connect(func() -> void: requests.tutorial += 1)
+	menu.get_node("PlayButton").pressed.emit()
+	menu.get_node("TutorialButton").pressed.emit()
+	_expect_equal(requests, {"play": 1, "tutorial": 1}, "Menu actions emit without campaign IDs")
 	menu.queue_free()
-	await process_frame
-	var levels := level_select_scene.instantiate()
-	levels.configure({"highest_unlocked_level": 2, "completed_levels": [1], "best_scores": {"1": 250}})
-	root.add_child(levels)
-	await process_frame
-	_expect_equal(levels.get_level_button_count(), 9, "Level Select exposes exactly nine levels")
-	_expect_true(levels.is_level_enabled(2), "Highest unlocked level is selectable")
-	_expect_true(not levels.is_level_enabled(3), "Locked level is not selectable")
-	_expect_true(levels.is_level_completed(1), "Completed level state is visible")
-	var completed_button := levels.get_node("Level1Button") as Button
-	_expect_true(not completed_button.text.contains("✓"), "Completed level avoids an unsupported technical glyph")
-	levels.queue_free()
 	await process_frame
 
 
@@ -404,30 +407,38 @@ func _test_scene_router_flow() -> void:
 	var boot := (load("res://scenes/boot/Boot.tscn") as PackedScene).instantiate()
 	root.add_child(boot)
 	await process_frame
-	var test_path := "user://clown_smash_router_test.json"
-	boot.save_manager.set_save_path_for_tests(test_path)
 	boot.save_manager.delete_save_for_tests()
-	_expect_equal(boot._current_screen.name, "StartupSplash", "SceneRouter starts at StartupSplash")
 	boot.skip_startup_splash()
 	await create_timer(0.30).timeout
-	_expect_equal(boot._current_screen.name, "MainMenu", "SceneRouter starts at Main Menu")
-	boot.show_level_select()
+	_expect_equal(boot._current_screen.name, "MainMenu", "Router opens main menu")
+	boot.save_manager.record_run(120, 8, 4, 125.0)
+	boot._current_screen.get_node("StatisticsButton").pressed.emit()
 	await process_frame
-	_expect_equal(boot._current_screen.name, "LevelSelect", "SceneRouter opens Level Select")
-	boot.start_level(2)
+	_expect_equal(boot._current_screen.name, "Statistics", "Statistics button opens separate screen")
+	var records_label: Label = boot._current_screen.find_child("Records", true, false)
+	_expect_equal(records_label.text, tr("MENU_RECORDS") % [120, 8, 4, "2:05"], "Statistics displays all four saved records")
+	boot._current_screen.find_child("BackButton", true, false).pressed.emit()
 	await process_frame
-	_expect_equal(boot._current_screen.name, "LevelSelect", "SceneRouter rejects locked levels")
-	boot.save_manager.record_completed_level(1, 300, 5)
-	boot.start_level(2)
+	_expect_equal(boot._current_screen.name, "MainMenu", "Statistics Back returns to menu")
+	for id in boot.save_manager.LESSON_IDS:
+		boot.save_manager.learn_lesson(id)
+	boot.start_run()
 	await process_frame
-	_expect_equal(boot._current_screen.name, "Gameplay", "SceneRouter starts an unlocked level")
-	_expect_equal(boot._current_screen.level_number, 2, "SceneRouter configures requested level")
+	_expect_equal(boot._current_screen.name, "Gameplay", "Router starts mastered endless run")
+	var completed_game = boot._current_screen
+	completed_game.game_controller.score = 123
+	completed_game._on_training_completed()
+	_expect_true(completed_game.session_overlay.is_showing_training_complete(), "Router-owned training completion shows notification")
+	completed_game.session_overlay._continue_button.pressed.emit()
+	await process_frame
+	_expect_true(boot._current_screen != completed_game, "Start game uses main-menu router to create a new screen")
+	_expect_true(boot._current_screen.round_director.round_index == 1 and boot._current_screen.game_controller.score == 0 and not paused, "Router start clears training score and pause")
 	boot._current_screen.game_controller.begin_running()
 	boot._current_screen.game_controller.pause_level()
 	boot.show_main_menu()
 	await process_frame
 	_expect_true(not paused, "Returning to menu clears SceneTree pause")
-	_expect_equal(boot._current_screen.name, "MainMenu", "SceneRouter returns to Main Menu")
+	_expect_equal(boot._current_screen.name, "MainMenu", "Router returns to main menu")
 	boot.save_manager.delete_save_for_tests()
 	boot.queue_free()
 	await process_frame
@@ -437,7 +448,7 @@ func _test_scoring_and_combo() -> void:
 	var game_controller_script := load("res://scripts/gameplay/game_controller.gd") as GDScript
 	var game_controller := game_controller_script.new() as Node
 	root.add_child(game_controller)
-	game_controller.start_level(90.0, 250, false)
+	game_controller.start_run(RoundProfile.new(), false)
 
 	game_controller.resolve_scoring_hit()
 	_expect_equal(game_controller.score, 10, "Normal hit adds exactly 10 score")
@@ -455,40 +466,19 @@ func _test_scoring_and_combo() -> void:
 	game_controller.queue_free()
 
 
-func _test_level_one_config() -> void:
-	var level_config := load("res://data/levels/level_01.tres") as LevelConfig
-	_expect_true(level_config != null, "Level 1 config loads")
-	if level_config == null:
-		return
-	_expect_equal(level_config.level_id, 1, "Level 1 config has ID 1")
-	_expect_equal(level_config.duration, 60.0, "Level 1 duration is 60 seconds")
-	_expect_equal(level_config.target_score, 150, "Level 1 target score is 150")
-	_expect_equal(level_config.spawn_interval_min, 0.25, "Level 1 minimum spawn interval is 0.25 seconds")
-	_expect_equal(level_config.spawn_interval_max, 0.31, "Level 1 maximum spawn interval is 0.31 seconds")
-	_expect_equal(level_config.max_active_characters, 1, "Level 1 allows one active character")
+func _test_recovery_profile() -> void:
+	var profile := load("res://data/round_profiles/recovery.tres") as RoundProfile
+	_expect_true(profile != null, "Recovery profile loads")
+	_expect_equal(profile.duration, 25.0, "Round duration remains 25 seconds")
+	_expect_equal(profile.max_decision_targets, 1, "Recovery allows one decision")
+	_expect_equal(profile.double_spawn_chance, 0.0, "Recovery has no double spawns")
 
 
-func _test_all_level_configs_and_assets() -> void:
-	var seen_level_ids: Dictionary = {}
-	for level_id in range(1, 10):
-		var config := load("res://data/levels/level_%02d.tres" % level_id) as LevelConfig
-		_expect_true(config != null, "Level %d config loads" % level_id)
-		if config == null:
-			continue
-		_expect_equal(config.level_id, level_id, "Level %d has the correct ID" % level_id)
-		_expect_true(not seen_level_ids.has(config.level_id), "Level %d ID is unique" % level_id)
-		seen_level_ids[config.level_id] = true
-		_expect_true(config.duration > 0.0, "Level %d duration is positive" % level_id)
-		_expect_equal(config.duration, 60.0, "Level %d keeps the 60-second duration" % level_id)
-		_expect_true(config.max_active_characters >= 1 and config.max_active_characters <= 2, "Level %d has valid max active" % level_id)
-		var weights := [config.normal_weight, config.fast_weight, config.golden_weight, config.bomb_weight, config.clock_weight, config.glutton_weight, config.drunk_weight]
-		var total_weight := 0.0
-		for weight in weights:
-			_expect_true(weight >= 0.0, "Level %d has no negative character weight" % level_id)
-			total_weight += weight
-		_expect_true(total_weight > 0.0, "Level %d has a spawnable character mix" % level_id)
-		_expect_true(config.normal_weight > 0.0, "Level %d keeps Normal enabled" % level_id)
-	_expect_equal(seen_level_ids.size(), 9, "Exactly nine unique LevelConfig resources exist")
+func _test_all_round_profiles_and_assets() -> void:
+	for phase in ["recovery", "build", "variation", "pressure", "peak"]:
+		var profile := load("res://data/round_profiles/%s.tres" % phase) as RoundProfile
+		_expect_true(profile != null, phase + " profile loads")
+		_expect_equal(profile.validation_errors(), PackedStringArray(), phase + " respects all numerical bounds")
 
 	for asset_name in ["normal", "fast", "golden", "bomb", "clock", "glutton", "drunk"]:
 		var texture := load("res://assets/generated/%s_clown.png" % asset_name) as Texture2D
@@ -509,43 +499,43 @@ func _test_spawn_director_deterministic_seed() -> void:
 	root.add_child(gameplay)
 	await process_frame
 	gameplay.spawn_director.stop()
-	gameplay.debug_set_level(9)
+	gameplay.debug_set_round(9)
 	gameplay.spawn_director.stop()
-	var config := load("res://data/levels/level_09.tres") as LevelConfig
+	var config := load("res://data/round_profiles/peak.tres") as RoundProfile
 	var first_sequence := _capture_spawn_sequence(gameplay, config, 7331, 18)
 	var second_sequence := _capture_spawn_sequence(gameplay, config, 7331, 18)
 	_expect_equal(first_sequence, second_sequence, "Same SpawnDirector seed reproduces character and slot sequence")
 	_expect_true(first_sequence.size() == 18, "Deterministic spawn test captures every requested spawn")
-	for level_id in range(1, 10):
-		var level_config := load("res://data/levels/level_%02d.tres" % level_id) as LevelConfig
+	for level_id in range(5):
+		var phase: String = ["recovery", "build", "variation", "pressure", "peak"][level_id]
+		var level_config := load("res://data/round_profiles/%s.tres" % phase) as RoundProfile
 		gameplay.board_controller.clear_all()
 		gameplay.spawn_director.deterministic_seed = 7331 + level_id
 		gameplay.spawn_director.configure(gameplay.board_controller, level_config)
-		gameplay.spawn_director.prepare_level()
-		_expect_equal(gameplay.spawn_director._guaranteed_queue.size(), 4, "Level %d schedules only active character types" % level_id)
-		_expect_true(gameplay.spawn_director._guaranteed_deadlines.front() > 0.0, "Level %d does not force a guaranteed type at round start" % level_id)
-		for spawn_index in range(4):
-			_expect_true(gameplay.spawn_director._spawn_one(), "Level %d opens with a weighted spawn" % level_id)
-			gameplay.board_controller.clear_all()
-		_expect_equal(gameplay.spawn_director._guaranteed_queue.size(), 4, "Level %d keeps guarantees out of the opening spawns" % level_id)
-		var guaranteed_sequence := _capture_spawn_sequence(gameplay, level_config, 7331 + level_id, 28, true)
-		var seen_types: Dictionary = {}
-		for spawned in guaranteed_sequence:
-			seen_types[StringName(spawned.get_slice(":", 1))] = true
-		for required_type in [&"normal", &"bomb", &"clock", &"glutton"]:
-			_expect_true(seen_types.has(required_type), "Level %d guarantees %s" % [level_id, required_type])
-		for disabled_type in [&"fast", &"golden", &"drunk"]:
-			_expect_true(not seen_types.has(disabled_type), "Level %d does not spawn disabled %s" % [level_id, disabled_type])
+		gameplay.spawn_director.prepare_round()
+		var required: Array[StringName] = []
+		for kind in gameplay.spawn_director.ENABLED_CHARACTER_TYPES:
+			if gameplay.spawn_director._weight_for(kind) > 0.0:
+				required.append(kind)
+		var sequence := _capture_spawn_sequence(gameplay, level_config, 7331 + level_id, 36, true)
+		var seen: Dictionary = {}
+		for spawned in sequence:
+			var kind := StringName(spawned.get_slice(":", 1))
+			seen[kind] = true
+			_expect_true(kind in required, "Only profile-enabled types spawn")
+		for kind in required:
+			_expect_true(seen.has(kind), "Phase %d guarantees %s" % [level_id, kind])
+		_expect_true(not seen.has(&"drunk"), "Drunk awaits human clarity validation")
 	gameplay.queue_free()
 	await process_frame
 
 
-func _capture_spawn_sequence(gameplay: Control, config: LevelConfig, seed: int, count: int, advance_round: bool = false) -> Array[String]:
+func _capture_spawn_sequence(gameplay: Control, config: RoundProfile, seed: int, count: int, advance_round: bool = false) -> Array[String]:
 	var sequence: Array[String] = []
 	gameplay.board_controller.clear_all()
 	gameplay.spawn_director.deterministic_seed = seed
 	gameplay.spawn_director.configure(gameplay.board_controller, config)
-	gameplay.spawn_director.prepare_level()
+	gameplay.spawn_director.prepare_round()
 	for spawn_index in range(count):
 		if advance_round:
 			var progress := float(spawn_index + 1) / float(count)
@@ -564,7 +554,7 @@ func _capture_spawn_sequence(gameplay: Control, config: LevelConfig, seed: int, 
 func _test_spawn_rate_accelerates_over_round() -> void:
 	var director_script := load("res://scripts/gameplay/spawn_director.gd") as GDScript
 	var director := director_script.new() as Node
-	var config := LevelConfig.new()
+	var config := RoundProfile.new()
 	config.duration = 60.0
 	config.spawn_interval_min = 1.0
 	config.spawn_interval_max = 1.0
@@ -584,17 +574,18 @@ func _test_all_character_rules() -> void:
 	var game_controller_script := load("res://scripts/gameplay/game_controller.gd") as GDScript
 	var game_controller := game_controller_script.new() as Node
 	root.add_child(game_controller)
-	game_controller.start_level(60.0, 0, false, 2, 1, 30.0)
+	game_controller.start_run(RoundProfile.new(), false)
 	var static_feedback: Array[String] = []
 	game_controller.feedback_requested.connect(func(text: String) -> void: static_feedback.append(text))
 
 	game_controller.resolve_character_hit(&"normal")
+	_expect_equal(game_controller.score, 10, "Normal awards +10")
 	game_controller.resolve_character_hit(&"fast")
+	_expect_equal(game_controller.score, 30, "Fast adds +20")
 	game_controller.resolve_character_hit(&"golden")
-	_expect_equal(game_controller.score, 30, "Normal, Fast and Golden each award exactly +10")
+	_expect_equal(game_controller.score, 80, "Normal +10, Fast +20 and Golden +50")
 	_expect_equal(game_controller.combo_count, 3, "All scoring characters increase combo")
-	_expect_equal(game_controller.golden_hits, 1, "Golden hit advances the Golden objective")
-	_expect_true(game_controller.objectives_met(), "Score, combo and Golden objectives are evaluated together")
+	_expect_equal(game_controller.golden_hits, 1, "Golden hit retains hit statistic")
 	_expect_true("+10" not in static_feedback, "Scoring hits do not request a static +10 HUD message")
 
 	game_controller.resolve_character_hit(&"bomb")
@@ -606,7 +597,7 @@ func _test_all_character_rules() -> void:
 	game_controller.resolve_character_hit(&"clock")
 	game_controller.resolve_character_hit(&"clock")
 	game_controller.resolve_character_hit(&"clock")
-	_expect_equal(game_controller.remaining_time, 90.0, "Clock bonuses stop at the 30-second level cap")
+	_expect_equal(game_controller.remaining_time, 25.0, "Clock leaves round duration unchanged")
 	_expect_equal(game_controller.combo_count, 1, "Clock preserves the current combo")
 
 	game_controller.resolve_character_hit(&"glutton")
@@ -629,97 +620,52 @@ func _test_all_character_rules() -> void:
 	game_controller.resolve_character_escape(&"bomb")
 	_expect_equal(game_controller.lives, lives_before_ignored_bomb, "Ignored Bomb has no penalty")
 	game_controller.resolve_character_escape(&"glutton")
-	_expect_equal(game_controller.lives, lives_before_ignored_bomb, "Escaped Glutton keeps all lives")
+	_expect_equal(game_controller.lives, lives_before_ignored_bomb - 1, "Escaped Glutton removes one life")
 	game_controller.resolve_character_escape(&"clock")
-	_expect_equal(game_controller.lives, lives_before_ignored_bomb, "Escaped Clock keeps all lives")
+	_expect_equal(game_controller.lives, lives_before_ignored_bomb - 1, "Escaped Clock keeps remaining lives")
 	game_controller.resolve_empty_hit()
-	_expect_equal(game_controller.lives, lives_before_ignored_bomb, "Empty strike missing an active bonus keeps all lives")
+	_expect_equal(game_controller.lives, lives_before_ignored_bomb - 1, "First empty strike preserves remaining lives")
 	game_controller.queue_free()
 
 
 func _test_save_data_defaults() -> void:
-	var save_manager_script := load("res://scripts/save/save_manager.gd") as GDScript
-	_expect_true(save_manager_script != null, "SaveManager script loads")
-	if save_manager_script == null:
-		return
-
-	var manager := save_manager_script.new() as Node
-	root.add_child(manager)
-	manager.set_save_path_for_tests("user://clown_smash_save_test.json")
+	var manager = load("res://scripts/save/save_manager.gd").new()
+	manager.set_save_path_for_tests("res://builds/debug/verification/endless/full/defaults.json")
 	manager.delete_save_for_tests()
+	var first: Dictionary = manager.load_data()
+	_expect_equal(first.save_version, 2, "Missing save defaults to v2")
+	_expect_equal(first.best_run_score, 0, "Missing save has no endless records")
+	_expect_equal(first.learned_lessons, [], "Missing save requires all lessons")
+	_expect_true(first.music_enabled and first.sound_enabled and first.haptics_enabled, "Default settings remain enabled")
+	var second: Dictionary = manager.load_data()
+	first.learned_lessons.append("normal")
+	first.legacy_campaign.best_scores.x = 5
+	_expect_equal(second.learned_lessons, [], "Default lesson array remains independent")
+	_expect_equal(second.legacy_campaign.best_scores, {}, "Default legacy dictionary remains independent")
+	manager.free()
 
-	var first_data: Dictionary = manager.load_data()
-	_expect_equal(first_data["save_version"], 1, "Missing save defaults to schema version 1")
-	_expect_equal(first_data["highest_unlocked_level"], 1, "Missing save defaults to Level 1")
-	_expect_equal(first_data["completed_levels"], [], "Missing save has no completed levels")
-	_expect_true(first_data["best_scores"] == {}, "Missing save has empty best_scores map")
-	_expect_true(first_data["best_combos"] == {}, "Missing save has empty best_combos map")
-	_expect_true(first_data["music_enabled"], "Missing save keeps music enabled")
-	_expect_true(first_data["sound_enabled"], "Missing save keeps sound enabled")
-	_expect_true(first_data["haptics_enabled"], "Missing save keeps haptics enabled")
 
-	var second_data: Dictionary = manager.load_data()
-	first_data["completed_levels"].append(1)
-	first_data["best_scores"]["x"] = 5
-	_expect_equal(second_data["completed_levels"], [], "Load data defaults remain independent (array)")
-	_expect_equal(second_data["best_scores"], {}, "Load data defaults remain independent (dictionary)")
+func _test_save_data_record_run() -> void:
+	var manager = load("res://scripts/save/save_manager.gd").new()
+	manager.set_save_path_for_tests("res://builds/debug/verification/endless/full/records.json")
 	manager.delete_save_for_tests()
-	manager.queue_free()
-
-
-func _test_save_data_record_completed_level() -> void:
-	var save_manager_script := load("res://scripts/save/save_manager.gd") as GDScript
-	_expect_true(save_manager_script != null, "SaveManager script loads for completion recording checks")
-	if save_manager_script == null:
-		return
-
-	var manager := save_manager_script.new() as Node
-	root.add_child(manager)
-	var test_save_path: String = "user://clown_smash_save_test_progress.json"
-	manager.set_save_path_for_tests(test_save_path)
+	_expect_true(manager.record_run(320, 6, 10, 500.0), "Run records write successfully")
+	_expect_true(manager.record_run(180, 12, 1000, 300.0), "Independent records merge successfully")
+	var result: Dictionary = manager.load_data()
+	_expect_equal(result.best_run_score, 320, "Lower run score does not replace best")
+	_expect_equal(result.best_run_combo, 12, "Series record updates independently")
+	_expect_equal(result.best_run_rounds, 1000, "Round records are not capped at nine")
+	_expect_equal(result.best_run_active_seconds, 500.0, "Active time retains independent maximum")
+	_expect_true(not manager.record_run(-1, 20, 5, 30), "Negative run score is rejected")
+	_expect_equal(manager.load_data(), result, "Invalid record leaves persisted data unchanged")
 	manager.delete_save_for_tests()
-
-	var level_one_data: Dictionary = manager.record_completed_level(1, 320, 6)
-	_expect_equal(level_one_data["highest_unlocked_level"], 2, "Completing level 1 unlocks level 2")
-	_expect_true(level_one_data["completed_levels"].has(1), "Completing a valid level tracks completion once")
-	_expect_equal(level_one_data["best_scores"]["1"], 320, "Highest score is stored for level key")
-	_expect_equal(level_one_data["best_combos"]["1"], 6, "Highest combo is stored for level key")
-
-	var reloaded_data: Dictionary = manager.load_data()
-	_expect_equal(reloaded_data["highest_unlocked_level"], 2, "Completion write round-trips through save/load")
-	_expect_equal(reloaded_data["best_scores"]["1"], 320, "Saved best score round-trips")
-	_expect_equal(reloaded_data["best_combos"]["1"], 6, "Saved best combo round-trips")
-
-	level_one_data = manager.record_completed_level(1, 180, 4)
-	_expect_equal(level_one_data["best_scores"]["1"], 320, "Lower score for same level does not replace best")
-	_expect_equal(level_one_data["best_combos"]["1"], 6, "Lower combo for same level does not replace best")
-
-	level_one_data = manager.record_completed_level(1, 450, 12)
-	_expect_equal(level_one_data["best_scores"]["1"], 450, "Higher score replaces best score for same level")
-	_expect_equal(level_one_data["best_combos"]["1"], 12, "Higher combo replaces best combo for same level")
-
-	level_one_data = manager.record_completed_level(9, 50, 5)
-	_expect_equal(level_one_data["highest_unlocked_level"], 9, "Completing level 9 keeps highest unlocked at cap 9")
-
-	var unchanged_data: Dictionary = manager.record_completed_level(10, 100, 4)
-	_expect_equal(unchanged_data["highest_unlocked_level"], 9, "Invalid level does not alter highest unlock")
-	_expect_equal(unchanged_data["completed_levels"], level_one_data["completed_levels"], "Invalid level does not alter completed levels")
-
-	unchanged_data = manager.record_completed_level(2, -10, 4)
-	_expect_equal(unchanged_data["highest_unlocked_level"], 9, "Negative score does not alter highest unlock")
-
-	unchanged_data = manager.record_completed_level(2, 120, -4)
-	_expect_equal(unchanged_data["best_scores"], level_one_data["best_scores"], "Negative combo does not alter best scores")
-	_expect_equal(unchanged_data["best_combos"], level_one_data["best_combos"], "Negative combo does not alter best combo values")
-
-	manager.delete_save_for_tests()
-	manager.queue_free()
+	manager.free()
 
 
 func _test_save_settings_round_trip() -> void:
 	var manager := (load("res://scripts/save/save_manager.gd") as GDScript).new() as Node
 	root.add_child(manager)
-	var test_path := "user://clown_smash_settings_test.json"
+	var test_path := "res://builds/debug/verification/endless/full/clown_smash_settings_test.json"
 	manager.set_save_path_for_tests(test_path)
 	manager.delete_save_for_tests()
 	_expect_equal(manager.update_settings(false, true, false), OK, "Settings save succeeds")
@@ -739,23 +685,24 @@ func _test_save_data_invalid_fallback() -> void:
 
 	var manager := save_manager_script.new() as Node
 	root.add_child(manager)
-	var test_save_path: String = "user://clown_smash_save_test_invalid.json"
+	var test_save_path: String = "res://builds/debug/verification/endless/full/clown_smash_save_test_invalid.json"
 	manager.set_save_path_for_tests(test_save_path)
 
 	manager.delete_save_for_tests()
 	_write_test_save_payload(test_save_path, "{ not valid json ")
 	var malformed_data: Dictionary = manager.load_data()
-	_expect_equal(malformed_data["highest_unlocked_level"], 1, "Malformed JSON falls back to defaults")
+	_expect_equal(malformed_data["legacy_campaign"]["highest_unlocked_level"], 1, "Malformed JSON falls back to defaults")
 
 	manager.delete_save_for_tests()
 	_write_test_save_payload(test_save_path, '{"save_version":"one","highest_unlocked_level":"bad","completed_levels":"not_array","best_scores":[],"best_combos":[],"music_enabled":"yes","sound_enabled":1,"haptics_enabled":1}')
 	var structural_data: Dictionary = manager.load_data()
-	_expect_equal(structural_data["highest_unlocked_level"], 1, "Invalid save schema falls back to defaults")
+	_expect_equal(structural_data["legacy_campaign"]["highest_unlocked_level"], 1, "Invalid save schema falls back to defaults")
 
 	manager.delete_save_for_tests()
 	manager.queue_free()
 
 
+# These v1 fixtures verify only legacy migration validation, never active campaign runtime.
 func _test_save_data_semantic_validation() -> void:
 	var save_manager_script := load("res://scripts/save/save_manager.gd") as GDScript
 	_expect_true(save_manager_script != null, "SaveManager script loads for semantic validation checks")
@@ -764,17 +711,17 @@ func _test_save_data_semantic_validation() -> void:
 
 	var manager := save_manager_script.new() as Node
 	root.add_child(manager)
-	var test_save_path: String = "user://clown_smash_save_test_semantic.json"
+	var test_save_path: String = "res://builds/debug/verification/endless/full/clown_smash_save_test_semantic.json"
 	manager.set_save_path_for_tests(test_save_path)
 
 	manager.delete_save_for_tests()
 	_write_test_save_payload(
 		test_save_path,
-		'{"save_version":2,"highest_unlocked_level":3,"completed_levels":[1],"best_scores":{"1":10},"best_combos":{"1":6},"music_enabled":true,"sound_enabled":true,"haptics_enabled":true}'
+		'{"save_version":99,"highest_unlocked_level":3,"completed_levels":[1],"best_scores":{"1":10},"best_combos":{"1":6},"music_enabled":true,"sound_enabled":true,"haptics_enabled":true}'
 	)
 	var unsupported_version: Dictionary = manager.load_data()
-	_expect_equal(unsupported_version["save_version"], 1, "Unsupported save_version falls back to default")
-	_expect_equal(unsupported_version["highest_unlocked_level"], 1, "Unsupported save_version falls back to level 1")
+	_expect_equal(unsupported_version["save_version"], 2, "Unsupported save_version falls back to default")
+	_expect_equal(unsupported_version["legacy_campaign"]["highest_unlocked_level"], 1, "Unsupported save_version falls back to level 1")
 
 	manager.delete_save_for_tests()
 	_write_test_save_payload(
@@ -782,7 +729,7 @@ func _test_save_data_semantic_validation() -> void:
 		'{"save_version":1,"highest_unlocked_level":11,"completed_levels":[],"best_scores":{"1":10},"best_combos":{"1":6},"music_enabled":true,"sound_enabled":true,"haptics_enabled":true}'
 	)
 	var invalid_level: Dictionary = manager.load_data()
-	_expect_equal(invalid_level["highest_unlocked_level"], 1, "Highest unlocked outside 1..9 falls back to default")
+	_expect_equal(invalid_level["legacy_campaign"]["highest_unlocked_level"], 1, "Highest unlocked outside 1..9 falls back to default")
 
 	manager.delete_save_for_tests()
 	_write_test_save_payload(
@@ -790,7 +737,7 @@ func _test_save_data_semantic_validation() -> void:
 		'{"save_version":1,"highest_unlocked_level":3,"completed_levels":[1,1],"best_scores":{"1":10},"best_combos":{"1":6},"music_enabled":true,"sound_enabled":true,"haptics_enabled":true}'
 	)
 	var duplicate_levels: Dictionary = manager.load_data()
-	_expect_equal(duplicate_levels["highest_unlocked_level"], 1, "Duplicate completed_levels fall back to default")
+	_expect_equal(duplicate_levels["legacy_campaign"]["highest_unlocked_level"], 1, "Duplicate completed_levels fall back to default")
 
 	manager.delete_save_for_tests()
 	_write_test_save_payload(
@@ -798,7 +745,7 @@ func _test_save_data_semantic_validation() -> void:
 		'{"save_version":1,"highest_unlocked_level":3,"completed_levels":[10],"best_scores":{"1":10},"best_combos":{"1":6},"music_enabled":true,"sound_enabled":true,"haptics_enabled":true}'
 	)
 	var out_of_range_level_list: Dictionary = manager.load_data()
-	_expect_equal(out_of_range_level_list["highest_unlocked_level"], 1, "Completed_levels outside 1..9 falls back to default")
+	_expect_equal(out_of_range_level_list["legacy_campaign"]["highest_unlocked_level"], 1, "Completed_levels outside 1..9 falls back to default")
 
 	manager.delete_save_for_tests()
 	_write_test_save_payload(
@@ -806,7 +753,7 @@ func _test_save_data_semantic_validation() -> void:
 		'{"save_version":1.5,"highest_unlocked_level":3,"completed_levels":[1],"best_scores":{"1":10},"best_combos":{"1":6},"music_enabled":true,"sound_enabled":true,"haptics_enabled":true}'
 	)
 	var fractional_version: Dictionary = manager.load_data()
-	_expect_equal(fractional_version["highest_unlocked_level"], 1, "Fractional save_version falls back to default")
+	_expect_equal(fractional_version["legacy_campaign"]["highest_unlocked_level"], 1, "Fractional save_version falls back to default")
 
 	manager.delete_save_for_tests()
 	_write_test_save_payload(
@@ -814,7 +761,7 @@ func _test_save_data_semantic_validation() -> void:
 		'{"save_version":1,"highest_unlocked_level":3,"completed_levels":[9],"best_scores":{"1":-5},"best_combos":{"1":4},"music_enabled":true,"sound_enabled":true,"haptics_enabled":true}'
 	)
 	var negative_score: Dictionary = manager.load_data()
-	_expect_equal(negative_score["highest_unlocked_level"], 1, "Negative best_scores entries fall back to default")
+	_expect_equal(negative_score["legacy_campaign"]["highest_unlocked_level"], 1, "Negative best_scores entries fall back to default")
 
 	manager.delete_save_for_tests()
 	_write_test_save_payload(
@@ -822,7 +769,7 @@ func _test_save_data_semantic_validation() -> void:
 		'{"save_version":1,"highest_unlocked_level":3,"completed_levels":[9],"best_scores":{"1":1.5},"best_combos":{"1":4},"music_enabled":true,"sound_enabled":true,"haptics_enabled":true}'
 	)
 	var fractional_best_score: Dictionary = manager.load_data()
-	_expect_equal(fractional_best_score["highest_unlocked_level"], 1, "Fractional best_scores entries fall back to default")
+	_expect_equal(fractional_best_score["legacy_campaign"]["highest_unlocked_level"], 1, "Fractional best_scores entries fall back to default")
 
 	manager.delete_save_for_tests()
 	_write_test_save_payload(
@@ -830,7 +777,7 @@ func _test_save_data_semantic_validation() -> void:
 		'{"save_version":1,"highest_unlocked_level":3,"completed_levels":[9],"best_scores":{"1":5},"best_combos":{"1":-1},"music_enabled":true,"sound_enabled":true,"haptics_enabled":true}'
 	)
 	var negative_combo: Dictionary = manager.load_data()
-	_expect_equal(negative_combo["highest_unlocked_level"], 1, "Negative best_combos entries fall back to default")
+	_expect_equal(negative_combo["legacy_campaign"]["highest_unlocked_level"], 1, "Negative best_combos entries fall back to default")
 
 	manager.delete_save_for_tests()
 	_write_test_save_payload(
@@ -838,7 +785,7 @@ func _test_save_data_semantic_validation() -> void:
 		'{"save_version":1,"highest_unlocked_level":3,"completed_levels":[1],"best_scores":{"1":10},"best_combos":{"1":2.2},"music_enabled":true,"sound_enabled":true,"haptics_enabled":true}'
 	)
 	var fractional_best_combo: Dictionary = manager.load_data()
-	_expect_equal(fractional_best_combo["highest_unlocked_level"], 1, "Fractional best_combos entries fall back to default")
+	_expect_equal(fractional_best_combo["legacy_campaign"]["highest_unlocked_level"], 1, "Fractional best_combos entries fall back to default")
 
 	manager.delete_save_for_tests()
 	_write_test_save_payload(
@@ -846,7 +793,7 @@ func _test_save_data_semantic_validation() -> void:
 		'{"save_version":1,"highest_unlocked_level":3.2,"completed_levels":[1],"best_scores":{"1":10},"best_combos":{"1":2},"music_enabled":true,"sound_enabled":true,"haptics_enabled":true}'
 	)
 	var fractional_unlock: Dictionary = manager.load_data()
-	_expect_equal(fractional_unlock["highest_unlocked_level"], 1, "Fractional highest_unlocked_level falls back to default")
+	_expect_equal(fractional_unlock["legacy_campaign"]["highest_unlocked_level"], 1, "Fractional highest_unlocked_level falls back to default")
 
 	manager.delete_save_for_tests()
 	_write_test_save_payload(
@@ -854,11 +801,11 @@ func _test_save_data_semantic_validation() -> void:
 		'{"save_version":1,"highest_unlocked_level":6,"completed_levels":[1,3,5],"best_scores":{"1":250,"3":90},"best_combos":{"1":4,"5":7},"music_enabled":false,"sound_enabled":false,"haptics_enabled":false}'
 	)
 	var valid_data: Dictionary = manager.load_data()
-	_expect_equal(valid_data["save_version"], 1, "Semantically valid save_version is preserved")
-	_expect_equal(valid_data["highest_unlocked_level"], 6, "Semantically valid unlock level is preserved")
-	_expect_equal(valid_data["completed_levels"], [1, 3, 5], "Semantically valid completed levels are preserved")
-	_expect_equal(valid_data["best_scores"], {"1": 250, "3": 90}, "Semantically valid best scores are preserved")
-	_expect_equal(valid_data["best_combos"], {"1": 4, "5": 7}, "Semantically valid best combos are preserved")
+	_expect_equal(valid_data["save_version"], 2, "Semantically valid save_version is preserved")
+	_expect_equal(valid_data["legacy_campaign"]["highest_unlocked_level"], 6, "Semantically valid unlock level is preserved")
+	_expect_equal(valid_data["legacy_campaign"]["completed_levels"], [1, 3, 5], "Semantically valid completed levels are preserved")
+	_expect_equal(valid_data["legacy_campaign"]["best_scores"], {"1": 250, "3": 90}, "Semantically valid best scores are preserved")
+	_expect_equal(valid_data["legacy_campaign"]["best_combos"], {"1": 4, "5": 7}, "Semantically valid best combos are preserved")
 	_expect_true(not valid_data["music_enabled"], "Semantically valid audio flags are preserved")
 	_expect_true(not valid_data["sound_enabled"], "Semantically valid sound flags are preserved")
 	_expect_true(not valid_data["haptics_enabled"], "Semantically valid haptics flags are preserved")
@@ -868,91 +815,29 @@ func _test_save_data_semantic_validation() -> void:
 
 
 func _test_save_data_write_failure_and_rollback() -> void:
-	var save_manager_script := load("res://scripts/save/save_manager.gd") as GDScript
-	_expect_true(save_manager_script != null, "SaveManager script loads for write failure checks")
-	if save_manager_script == null:
-		return
-
-	var manager := save_manager_script.new() as Node
-	root.add_child(manager)
-	var read_only_save_path: String = "user://"
-	manager.set_save_path_for_tests(read_only_save_path)
-
-	var error_code: Error = manager.save_data(manager._default_data())
-	_expect_equal(error_code, FAILED, "Save to unopenable path returns FAILED")
-	_expect_equal(manager.get_last_save_error(), FAILED, "SaveManager captures last save error")
-
-	var rollback_data: Dictionary = manager.record_completed_level(1, 120, 6)
-	_expect_equal(rollback_data["highest_unlocked_level"], 1, "record_completed_level does not report unsaved completion on write failure")
-	_expect_equal(rollback_data["completed_levels"], [], "Completion is not persisted in-memory on save failure")
-	_expect_true(not rollback_data["best_scores"].has("1"), "Best score is not applied on failed save")
-
-	manager.queue_free()
-
-	manager = save_manager_script.new() as Node
-	root.add_child(manager)
-	var invalid_key_save_path: String = "user://clown_smash_save_test_invalid_keys.json"
-	manager.set_save_path_for_tests(invalid_key_save_path)
+	var manager = load("res://scripts/save/save_manager.gd").new()
+	manager.set_save_path_for_tests("res://builds/debug/verification/endless/full/rollback.json")
 	manager.delete_save_for_tests()
-	_write_test_save_payload(
-		invalid_key_save_path,
-		'{"save_version":1,"highest_unlocked_level":3,"completed_levels":[1],"best_scores":{"1":250,"oops":90},"best_combos":{"1":4},"music_enabled":true,"sound_enabled":true,"haptics_enabled":true}'
-	)
-	var invalid_keys: Dictionary = manager.load_data()
-	_expect_equal(invalid_keys["highest_unlocked_level"], 1, "Non-level best_scores keys fall back to defaults")
-
-	manager.delete_save_for_tests()
-	_write_test_save_payload(
-		invalid_key_save_path,
-		'{"save_version":1,"highest_unlocked_level":1,"completed_levels":[5],"best_scores":{"5":250},"best_combos":{"5":4},"music_enabled":true,"sound_enabled":true,"haptics_enabled":true}'
-	)
-	var inconsistent_unlock: Dictionary = manager.load_data()
-	_expect_equal(inconsistent_unlock["highest_unlocked_level"], 1, "Inconsistent highest_unlocked_level fallback to default")
-
-	manager.delete_save_for_tests()
-	manager.queue_free()
+	manager.set_open_file_for_tests(func(_path: String, _mode: int) -> Object: return null)
+	_expect_true(not manager.record_run(100, 5, 10, 500), "Open failure rejects record write")
+	_expect_equal(manager.load_data().best_run_score, 0, "Failed write does not apply new record")
+	manager.free()
 
 
 func _test_save_data_write_failure_with_open_file() -> void:
-	var save_manager_script := load("res://scripts/save/save_manager.gd") as GDScript
-	_expect_true(save_manager_script != null, "SaveManager script loads for injected failure checks")
-	if save_manager_script == null:
-		return
-
-	var manager := save_manager_script.new() as Node
-	root.add_child(manager)
-	var test_save_path: String = "user://clown_smash_save_test_injected_error.json"
-	manager.set_save_path_for_tests(test_save_path)
+	var manager = load("res://scripts/save/save_manager.gd").new()
+	manager.set_save_path_for_tests("res://builds/debug/verification/endless/full/write_failure.json")
 	manager.delete_save_for_tests()
-
-	var baseline_data: Dictionary = manager.record_completed_level(1, 120, 6)
-	_expect_equal(baseline_data["highest_unlocked_level"], 2, "Baseline write creates a persisted successful completion")
-	_expect_true(baseline_data["completed_levels"].has(1), "Baseline completed level is persisted")
-	_expect_equal(baseline_data["best_scores"]["1"], 120, "Baseline best score persists")
-
-	var flush_failure_file := TestSaveFileAccess.new(&"flush")
-	manager.set_open_file_for_tests(func(_path: String, _mode: int) -> Object:
-		return flush_failure_file
-	)
-
-	var rollback_data: Dictionary = manager.record_completed_level(2, 180, 4)
-	_expect_equal(rollback_data["highest_unlocked_level"], 2, "Write-failure rollback keeps previously persisted highest level")
-	_expect_true(not rollback_data["completed_levels"].has(2), "Failed write does not add newly completed level")
-	_expect_equal(manager.get_last_save_error(), ERR_FILE_CANT_WRITE, "Injected flush failure sets last save error to real engine error")
-	_expect_true(flush_failure_file._closed, "Failed flush path closes the output handle")
-
-	var store_failure_file := TestSaveFileAccess.new(&"store")
-	manager.set_open_file_for_tests(func(_path: String, _mode: int) -> Object:
-		return store_failure_file
-	)
-
-	var save_failed: Error = manager.save_data(manager._default_data())
-	_expect_equal(save_failed, ERR_FILE_CANT_WRITE, "Injected store_string failure path returns write error")
-	_expect_equal(manager.get_last_save_error(), ERR_FILE_CANT_WRITE, "Injected store failure updates last save error")
-	_expect_true(store_failure_file._closed, "Failed store_string path closes the output handle")
-
+	_expect_true(manager.record_run(120, 5, 2, 100), "Baseline record persists")
+	for operation in [&"flush", &"store"]:
+		var failed_file := TestSaveFileAccess.new(operation)
+		manager.set_open_file_for_tests(func(_path: String, _mode: int) -> Object: return failed_file)
+		_expect_true(not manager.record_run(200, 8, 3, 200), "Injected %s error rejects write" % operation)
+		_expect_equal(manager.load_data().best_run_score, 120, "Write failure retains previous persisted record")
+		_expect_equal(manager.get_last_save_error(), ERR_FILE_CANT_WRITE, "Write failure reports engine error")
+		_expect_true(failed_file._closed, "Failed output handle closes")
 	manager.delete_save_for_tests()
-	manager.queue_free()
+	manager.free()
 
 
 func _write_test_save_payload(save_path: String, payload: String) -> void:
@@ -969,12 +854,12 @@ func _test_session_rules() -> void:
 	var game_controller := game_controller_script.new() as Node
 	root.add_child(game_controller)
 	game_controller.countdown_step_duration = 0.01
-	game_controller.start_level(90.0, 250, true)
-	_expect_equal(game_controller.state, game_controller_script.GameState.COUNTDOWN, "Level starts in COUNTDOWN")
+	game_controller.start_run(RoundProfile.new(), true)
+	_expect_equal(game_controller.state, game_controller_script.GameState.COUNTDOWN, "Run starts in COUNTDOWN")
 	for countdown_step in range(4):
 		game_controller._process(0.011)
 	_expect_equal(game_controller.state, game_controller_script.GameState.RUNNING, "Countdown reaches RUNNING")
-	_expect_equal(game_controller.lives, 3, "Level starts with three apple lives")
+	_expect_equal(game_controller.lives, 3, "Run starts with three hammer lives")
 
 	var time_before_pause: float = game_controller.remaining_time
 	game_controller.pause_level()
@@ -994,9 +879,10 @@ func _test_session_rules() -> void:
 	game_controller.lose_life()
 	_expect_equal(game_controller.state, game_controller_script.GameState.FINISHED_LOSS, "Zero lives causes immediate loss")
 
-	game_controller.start_level(0.05, 0, false)
+	game_controller.start_run(RoundProfile.new(), false)
+	game_controller.remaining_time = 0.05
 	game_controller._process(0.06)
-	_expect_equal(game_controller.state, game_controller_script.GameState.FINISHED_WIN, "Timer expiry with objective met causes win")
+	_expect_equal(game_controller.state, game_controller_script.GameState.ROUND_TRANSITION, "Timer expiry enters round-results transition")
 	game_controller.queue_free()
 
 
@@ -1009,7 +895,7 @@ func _test_core_interaction_scene() -> void:
 	var gameplay := packed_scene.instantiate()
 	root.add_child(gameplay)
 	await process_frame
-	var core_test_save_path := "user://clown_smash_core_interaction_test.json"
+	var core_test_save_path := "res://builds/debug/verification/endless/full/clown_smash_core_interaction_test.json"
 	gameplay.save_manager.set_save_path_for_tests(core_test_save_path)
 	gameplay.save_manager.delete_save_for_tests()
 	gameplay.game_controller.begin_running()
@@ -1031,7 +917,7 @@ func _test_core_interaction_scene() -> void:
 	_expect_equal(gameplay.board_controller.get_slot_index_for_tap(clown_touch_on_board), 4, "Touching the clown head selects its slot")
 	var face_touch_on_board: Vector2 = active_slot.position + active_slot.get_local_impact_position() + Vector2(0.0, 32.0)
 	_expect_equal(gameplay.board_controller.get_slot_index_for_tap(face_touch_on_board), 4, "Touching the visible clown face selects its slot before the box")
-	var box_touch_on_board: Vector2 = active_slot.position + Vector2(145.0, 260.0) * active_slot.scale.x
+	var box_touch_on_board: Vector2 = active_slot.position + Vector2(130.0, 260.0) * active_slot.scale.x
 	_expect_equal(gameplay.board_controller.get_slot_index_for_tap(box_touch_on_board), 4, "Touching the rendered box selects its slot")
 	var outside_touch_on_board: Vector2 = active_slot.position + Vector2(-32.0, -105.0) * active_slot.scale.x
 	_expect_equal(gameplay.board_controller.get_slot_index_for_tap(outside_touch_on_board), -1, "Transparent space outside box and clown head does not strike")
@@ -1068,82 +954,45 @@ func _test_core_interaction_scene() -> void:
 		_expect_true(not player.can_process(), "SFX player stops processing during pause")
 	gameplay.game_controller.resume_level()
 	_expect_true(not gameplay.session_overlay.is_showing_pause(), "Pause popup closes on resume")
-	gameplay.game_controller.finish_level(true)
+	gameplay.game_controller.is_practice = false
+	gameplay.game_controller.lives = 0
+	gameplay.game_controller.finish_run("lives")
 	await create_timer(0.55).timeout
-	_expect_true(gameplay.session_overlay.is_showing_result(), "Results popup is shown when level finishes")
+	_expect_true(gameplay.session_overlay.is_showing_result(), "Results popup is shown when run finishes")
 	gameplay.save_manager.delete_save_for_tests()
 	gameplay.queue_free()
 	await process_frame
 
 
 func _test_gameplay_completion_save_integration() -> void:
-	var packed_scene := load("res://scenes/gameplay/Gameplay.tscn") as PackedScene
-	_expect_true(packed_scene != null, "Gameplay scene loads for completion-save integration")
-	if packed_scene == null:
-		return
-
-	var test_save_path: String = "user://clown_smash_gameplay_completion_integration.json"
-	var gameplay := packed_scene.instantiate()
-	root.add_child(gameplay)
-	await process_frame
-	var save_manager := gameplay.get_node_or_null("SaveManager") as Node
-	_expect_true(save_manager != null, "Gameplay owns a SaveManager for completion persistence")
-	if save_manager == null:
+	var scene := load("res://scenes/gameplay/Gameplay.tscn") as PackedScene
+	for reason in ["menu", "lives"]:
+		var gameplay := scene.instantiate()
+		root.add_child(gameplay)
+		await process_frame
+		gameplay.save_manager.delete_save_for_tests()
+		gameplay.game_controller.score = 340
+		gameplay.game_controller.max_combo = 7
+		gameplay.game_controller.completed_rounds = 10
+		gameplay.game_controller.active_elapsed = 450.0
+		gameplay.game_controller.finish_run(reason)
+		var saved: Dictionary = gameplay.save_manager.load_data()
+		_expect_equal(saved.best_run_score, 340, "Run termination persists score: " + reason)
+		_expect_equal(saved.best_run_combo, 7, "Run termination persists best series")
+		_expect_equal(saved.best_run_rounds, 10, "Only completed rounds persist")
+		gameplay.save_manager.delete_save_for_tests()
 		gameplay.queue_free()
 		await process_frame
-		return
-	save_manager.set_save_path_for_tests(test_save_path)
-	save_manager.delete_save_for_tests()
-	gameplay.game_controller.score = 340
-	gameplay.game_controller.max_combo = 7
-	gameplay.game_controller.finish_level(true)
-
-	var saved_win: Dictionary = save_manager.load_data()
-	_expect_equal(saved_win["highest_unlocked_level"], 2, "Winning Level 1 unlocks Level 2 through Gameplay")
-	_expect_true(saved_win["completed_levels"].has(1), "Winning Level 1 persists completion through Gameplay")
-	_expect_equal(saved_win["best_scores"]["1"], 340, "Winning Level 1 persists Gameplay score")
-	_expect_equal(saved_win["best_combos"]["1"], 7, "Winning Level 1 persists Gameplay max combo")
-	save_manager.delete_save_for_tests()
-	gameplay.queue_free()
-	await process_frame
-
-	gameplay = packed_scene.instantiate()
+	var gameplay := scene.instantiate()
 	root.add_child(gameplay)
 	await process_frame
-	save_manager = gameplay.get_node_or_null("SaveManager") as Node
-	_expect_true(save_manager != null, "Gameplay owns a SaveManager for loss persistence guard")
-	if save_manager == null:
-		gameplay.queue_free()
-		await process_frame
-		return
-	save_manager.set_save_path_for_tests(test_save_path)
-	save_manager.delete_save_for_tests()
-	gameplay.game_controller.score = 100
-	gameplay.game_controller.max_combo = 3
-	gameplay.game_controller.finish_level(false)
-	_expect_true(not FileAccess.file_exists(test_save_path), "Losing a level does not persist Gameplay completion")
-	save_manager.delete_save_for_tests()
-	gameplay.queue_free()
-	await process_frame
-
-	gameplay = packed_scene.instantiate()
-	root.add_child(gameplay)
-	await process_frame
-	save_manager = gameplay.get_node_or_null("SaveManager") as Node
-	_expect_true(save_manager != null, "Gameplay owns a SaveManager for save-failure feedback")
-	if save_manager == null:
-		gameplay.queue_free()
-		await process_frame
-		return
 	var failed_file := TestSaveFileAccess.new(&"store")
-	save_manager.set_open_file_for_tests(func(_path: String, _mode: int) -> Object:
-		return failed_file
-	)
+	gameplay.save_manager.set_open_file_for_tests(func(_path: String, _mode: int) -> Object: return failed_file)
 	gameplay.game_controller.score = 300
-	gameplay.game_controller.max_combo = 5
-	gameplay.game_controller.finish_level(true)
+	gameplay.game_controller.lives = 0
+	gameplay.game_controller.finish_run("lives")
 	await create_timer(0.55).timeout
-	_expect_true(gameplay.session_overlay.is_showing_save_error(), "Save failure is visible on the Results overlay")
+	_expect_true(gameplay.session_overlay.is_showing_save_error(), "Save failure remains visible on results")
 	gameplay.queue_free()
 	await process_frame
 
@@ -1163,8 +1012,8 @@ func _test_special_character_scene_interactions() -> void:
 	await create_timer(0.85).timeout
 	_expect_true(gameplay.debug_tap_slot(0), "Golden can be struck by the hammer")
 	await create_timer(0.85).timeout
-	_expect_equal(gameplay.game_controller.score, 10, "Golden scene interaction awards +10")
-	_expect_equal(gameplay.game_controller.golden_hits, 1, "Golden scene interaction advances its objective")
+	_expect_equal(gameplay.game_controller.score, 50, "Golden scene interaction awards +50")
+	_expect_equal(gameplay.game_controller.golden_hits, 1, "Golden scene interaction retains hit statistic")
 
 	_expect_true(gameplay.debug_spawn_character(1, &"bomb", 3.4), "Bomb asset spawns through BoxSlot")
 	await create_timer(0.85).timeout
@@ -1178,7 +1027,7 @@ func _test_special_character_scene_interactions() -> void:
 	await create_timer(0.85).timeout
 	_expect_true(gameplay.debug_tap_slot(2), "Clock can be struck by the hammer")
 	await create_timer(0.85).timeout
-	_expect_true(gameplay.game_controller.remaining_time > time_before_clock + 8.0, "Clock scene interaction adds about ten seconds")
+	_expect_true(gameplay.spawn_director.slowdown_remaining > 4.0 and gameplay.game_controller.remaining_time <= time_before_clock, "Clock scene interaction slows spawning without adding time")
 
 	_expect_true(gameplay.debug_spawn_character(3, &"glutton", 3.4), "Glutton asset spawns through BoxSlot")
 	await create_timer(0.85).timeout
@@ -1208,24 +1057,24 @@ func _test_special_character_scene_interactions() -> void:
 	var lives_before_escape: int = gameplay.game_controller.lives
 	_expect_true(gameplay.debug_spawn_character(5, &"glutton", 0.05), "Glutton can enter its escape path")
 	await create_timer(0.95).timeout
-	_expect_equal(gameplay.game_controller.lives, lives_before_escape, "Escaped Glutton scene interaction keeps all apples")
+	_expect_equal(gameplay.game_controller.lives, lives_before_escape - 1, "Escaped Glutton scene interaction removes one life")
 	var clown_miss_events_before: int = gameplay.audio_manager.get_event_count(&"clown_miss")
 	_expect_true(gameplay.debug_spawn_normal(6, 0.05), "Normal can enter its miss path")
 	await create_timer(0.95).timeout
 	_expect_equal(gameplay.audio_manager.get_event_count(&"clown_miss"), clown_miss_events_before + 1, "Escaped scoring clown plays a miss sound")
 
-	gameplay.debug_set_level(8)
+	gameplay.debug_set_round(8)
 	gameplay.game_controller.begin_running()
 	gameplay.spawn_director.stop()
 	gameplay.spawn_director.set_confusion_remaining(1)
 	var allowed_types: Array[StringName] = gameplay.spawn_director._allowed_character_types()
 	_expect_true(&"drunk" not in allowed_types, "SpawnDirector keeps Drunk disabled")
-	_expect_true(&"fast" not in allowed_types and &"golden" not in allowed_types, "SpawnDirector keeps Fast and Golden disabled")
+	_expect_true(&"fast" in allowed_types and &"golden" in allowed_types, "Endless profiles enable Fast and Golden")
 	_expect_true(gameplay.debug_spawn_character(0, &"bomb", 3.4), "Bomb occupies a slot for fairness validation")
 	allowed_types = gameplay.spawn_director._allowed_character_types()
 	_expect_true(&"bomb" not in allowed_types, "SpawnDirector allows at most one Bomb")
-	_expect_true(&"glutton" not in allowed_types, "Levels 1-8 do not pair Bomb and Glutton")
-	_expect_true(&"drunk" not in allowed_types, "Levels 1-8 do not pair simultaneous hazards")
+	_expect_true(&"glutton" not in allowed_types, "Fairness does not pair Bomb and Glutton")
+	_expect_true(&"drunk" not in allowed_types, "Fairness does not pair simultaneous hazards")
 	gameplay.queue_free()
 	await process_frame
 
@@ -1251,7 +1100,7 @@ func _expect_true(condition: bool, message: String) -> void:
 func _test_consecutive_misses() -> void:
 	var controller = load("res://scripts/gameplay/game_controller.gd").new()
 	root.add_child(controller)
-	controller.start_level(60.0, 250, false)
+	controller.start_run(RoundProfile.new(), false)
 	controller.resolve_empty_hit()
 	controller.resolve_character_escape(&"normal")
 	_expect_equal(controller.lives, 3, "First two mixed misses preserve lives")
@@ -1273,10 +1122,10 @@ func _test_consecutive_misses() -> void:
 	controller.resolve_empty_hit()
 	_expect_equal(controller.consecutive_misses, 1, "Paused misses do not count")
 	controller.resume_level()
-	controller.start_level(60.0, 250, false)
+	controller.start_run(RoundProfile.new(), false)
 	_expect_equal(controller.consecutive_misses, 0, "Restart clears miss streak")
 	for index in range(9):
 		controller.resolve_empty_hit()
 	_expect_equal(controller.lives, 0, "Nine consecutive misses exhaust three lives")
-	_expect_equal(controller.state, controller.GameState.FINISHED_LOSS, "Third life penalty ends level in loss")
+	_expect_equal(controller.state, controller.GameState.FINISHED_LOSS, "Third life penalty ends run in loss")
 	controller.queue_free()

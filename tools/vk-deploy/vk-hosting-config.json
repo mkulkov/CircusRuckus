@@ -1,8 +1,8 @@
 {
-  "static_path": "../../builds/vk",
+  "static_path": "../../builds/debug/vk",
   "app_id": "54768735",
   "noprompt": true,
-  "update_prod": true,
+  "update_prod": false,
   "update_dev": true,
   "endpoints": {
     "mobile": "index.html",

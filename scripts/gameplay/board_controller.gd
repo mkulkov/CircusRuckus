@@ -8,13 +8,13 @@ signal character_spawned(character_type: StringName)
 const BOX_SLOT_SCENE := preload("res://scenes/gameplay/BoxSlot.tscn")
 const SLOT_SIZE := Vector2(290.0, 290.0)
 const MOBILE_BOARD_VERTICAL_OFFSET := 10.0
-const WEB_BOARD_VERTICAL_OFFSET := -102.0
+const WEB_BOARD_VERTICAL_OFFSET := 10.0
 const SLOT_POSITIONS := [
-	Vector2(94.0, 660.0), Vector2(391.0, 660.0), Vector2(688.0, 660.0),
-	Vector2(64.0, 936.0), Vector2(395.0, 936.0), Vector2(726.0, 936.0),
-	Vector2(8.0, 1212.0), Vector2(380.5, 1212.0), Vector2(753.0, 1212.0),
+	Vector2(122.4, 600.0), Vector2(412.4, 600.0), Vector2(702.4, 600.0),
+	Vector2(101.6, 840.0), Vector2(406.6, 840.0), Vector2(711.6, 840.0),
+	Vector2(80.8, 1080.0), Vector2(400.8, 1080.0), Vector2(720.8, 1080.0),
 ]
-const ROW_DEPTH_SCALES := [0.98, 1.0, 1.10]
+const ROW_DEPTH_SCALES := [0.88, 0.92, 0.96]
 
 var _slots: Array[Control] = []
 var _last_input_time: int = -1000
@@ -42,6 +42,14 @@ func get_occupied_slot_count() -> int:
 	var result := 0
 	for slot in _slots:
 		if not slot.is_idle():
+			result += 1
+	return result
+
+
+func get_decision_target_count() -> int:
+	var result := 0
+	for slot in _slots:
+		if slot.state in [slot.SlotState.OPENING, slot.SlotState.ACTIVE]:
 			result += 1
 	return result
 
@@ -75,16 +83,21 @@ func get_slot(slot_index: int) -> Control:
 	return _slots[slot_index]
 
 
+func finish_round_animations() -> void:
+	for slot in _slots:
+		slot.finish_round_animation()
+
+
 func clear_all() -> void:
 	for slot in _slots:
 		slot.force_clear()
 
 
-func get_slot_impact_position(slot_index: int) -> Vector2:
+func get_slot_impact_position(slot_index: int, include_reserved_hit: bool = false) -> Vector2:
 	var slot := get_slot(slot_index)
 	if slot == null:
 		return Vector2.ZERO
-	return slot.position + slot.get_local_impact_position() * slot.scale.x
+	return slot.position + slot.get_local_impact_position(include_reserved_hit) * slot.scale.x
 
 
 func get_active_character_types() -> Array[StringName]:
