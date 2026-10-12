@@ -1,5 +1,25 @@
 # PROGRESS.md — Цирковой переполох
 
+## 2026-10-12 — Изображение во время загрузки Web-сборок
+
+- Во время асинхронной инициализации локализации и облачного профиля `SceneRouter` показывает полноэкранную цирковую иллюстрацию загрузки. Она закрывает пустой серый кадр после появления Godot canvas и убирается перед штатной стартовой заставкой.
+- Используется уже настроенная boot splash текстура; новая графика и изменения HTML-шаблона не нужны.
+- `godot --headless --path . --script res://tests/run_tests.gd` завершился с `TEST RESULT: PASS`. Пересобраны все пять Web debug-пресетов: VK Mini Apps, VK Monetization Demo, OK Mini Apps, Yandex Games и Yandex Monetization Demo. Проверено наличие встроенного циркового HTML-фона и пары HTML/PCK в каждом результате; браузерный запуск Yandex показал загрузочную иллюстрацию и затем главное меню.
+- Исторические versioned release ZIP и их каталоги не изменялись; новые release-версии и деплой не создавались.
+
+## 2026-10-12 — Фон HTML для VK и ОК
+
+- Добавлен широкий фон интерьера циркового шатра в стиле игры (`tools/page-assets/circus-tent-backdrop.jpg`, 1200×675, 116 901 байт). Общий `web/portrait_shell.html` размывает его на 30 px, слегка приглушает цвет/яркость и показывает вокруг неизменённого вертикального игрового кадра.
+- `tools/export.ps1` встраивает фон как JPEG data URI в HTML-экспорты VK/ОК; штатный shell остаётся небольшим, исходные файлы фона и аналитики восстанавливаются после сборки. `.gdignore` исключает build-time картинку из runtime-ресурсов Godot.
+- Локальные релизные кандидаты собраны: VK 1.0.8/code 9 — `builds/release/vk/ru_mkulkov_circusruckus_1_0_8.zip`, SHA-256 `D1A794F9FBA22E07C9CEE567D4A08126D02F050034C2E5AD34DF869AD7F84FCE`; ОК 1.0.9/code 10 — `builds/release/ok/ru_mkulkov_circusruckus_1_0_9.zip`, SHA-256 `05B1AECBAC122D7ACB1C4CFF6A721BCA4450976DC9206CD9F6D940994F611603`. Каждый ZIP содержит 9 runtime-файлов, HTML содержит встроенное изображение и правило размытия.
+- Проверено: планирование обоих экспортов, Godot 4.7.2 release exports, SHA-256 исходного shell/аналитики после восстановления, diff whitespace; локальный Chromium-предпросмотр основного меню при 1280×800 подтвердил размытый фон снаружи кадра. Предупреждения облачной инициализации вне VK/ОК-контейнера ожидаемы. В кабинеты не загружалось; запуск в реальных клиентах VK/ОК и на устройствах не проверялся.
+
+## 2026-10-12 — Фон также для всех HTML-экспортов Yandex
+
+- Расширено определение платформы в `tools/export.ps1`: фон встраивается в каждый HTML-экспорт VK, ОК и Yandex, debug и release, включая web-пресеты Monetization Demo. Поведение OK сохранено.
+- Пересобраны Yandex debug-пресеты `Web - Yandex Games` и `Web - Yandex Monetization Demo`; в обоих `index.html` встроен JPEG и правило сильного размытия, placeholder отсутствует. Новая картинка остаётся build-time входом и не импортируется как ресурс Godot.
+- Release экспорт Yandex, загрузки в кабинеты и проверка внутри платформ не выполнялись.
+
 
 ## 2026-10-12 — Релизные кандидаты VK и ОК
 
@@ -1183,3 +1203,13 @@ Planned:
 ### 2026-10-12 — Training Next button at top
 - Moved the free-practice Next button from the bottom to centered design y334 plus native HUD inset, directly below the permanent message sign. Existing size, visibility, input signal and modal layouts retained.
 - Validation: import zero diagnostics, smoke PASS, whitespace PASS; OpenGL RU 720x1280 capture tutorial_advance_top_ru.png reviewed with clear separation from HUD and board.
+
+### 2026-10-12 — VK product release 1.0.11 prepared; Prod confirmation pending
+- Built VK release 1.0.11 (version code 12), SHA-256 `0E56EE1FA886CF0B81D4D48D8EE2627AF7A689DADCC5D6905A614AEA46B613E3`. Full Godot test suite passed. Read analytics settings from the exported PCK with the source config temporarily unavailable: production mode, verified contract, VK platform, matching app version and registered game ID.
+- Confirmed VK Bridge banner/native-ad calls are wired through the web monetization adapter. This verifies integration in the product build, not ad serving/fill.
+- VK accepted Prod hosting task 1791827180 and emitted upload success, Dev skipped, and push confirmation sent. No approval or deployment-complete event arrived during queue polling. Prod URL still serves files matching release 1.0.6 (index.html and index.pck); therefore release 1.0.11 is not verified live. Hosted analytics/ad delivery remains unverified until VK activates the task.
+- Resubmitted the same verified 1.0.11 archive to VK Prod at the user's request; VK accepted task 1791828384. Its queue emitted no terminal event during 90 seconds of polling, and Prod URL still matches release 1.0.6. Deployment is still not verified live; no Dev update was requested.
+- Rechecked after the user confirmed: task 1791828384 still has no terminal queue event, and Prod index.html/index.pck remain byte-for-byte identical to release 1.0.6. User confirmation has not yet produced verifiable VK activation.
+- Resubmitted at the user's request as task 1791830007. VK queue returned a Production deploy-complete event (code 201). Readback against the 1.0.11 runtime found seven of nine files matching, but `index.html` and `index.pck` still byte-for-byte match 1.0.6, including with cache-control bypass attempts; live product content is therefore not fully updated/verified. The uploaded ZIP entries for both files match the 1.0.11 release, so the mismatch is downstream of the local release archive.
+- Full Production update completed through task 1791830613. VK returned the Production URL `https://prod-app54768735-dc25e0f3db17.pages-ac.vk-apps.ru/index.html`; all 9 runtime files were read back from that URL and SHA-256 matched release 1.0.11. The earlier `0d50f0402e66` URL remains an older hosting snapshot (1.0.6). The current PCK matches the validated production analytics configuration; ad integration is present in the build, but actual ad fill and live analytics-event delivery were not tested in a VK client.
+- Uploaded the same VK 1.0.11 release to Dev with task `1791831776`. VK returned `https://stage-app54768735-a665644b74b5.pages.vk-apps.ru/index.html`; all 9 files read back through Playwright and SHA-256 matched the release runtime. The placement page now shows this stage URL for all three platforms and no unsaved changes. Developer-mode checkboxes read unchecked for all three after deployment; VK container gameplay was not tested.

@@ -5,6 +5,7 @@ const MAIN_MENU_SCENE := preload("res://scenes/ui/MainMenu.tscn")
 const STATISTICS_SCENE := preload("res://scenes/ui/Statistics.tscn")
 const GAMEPLAY_SCENE := preload("res://scenes/gameplay/Gameplay.tscn")
 const STARTUP_SPLASH_SCENE := preload("res://scenes/ui/StartupSplash.tscn")
+const LOADING_IMAGE := preload("res://assets/generated/boot_splash_clown_chase.png")
 
 @onready var save_manager: Node = $SaveManager
 @onready var settings_overlay: Control = $SettingsOverlay
@@ -14,11 +15,13 @@ const STARTUP_SPLASH_SCENE := preload("res://scenes/ui/StartupSplash.tscn")
 
 var _current_screen: Node
 var _cloud_sync_error := false
+var _loading_layer: CanvasLayer
 
 
 var _analytics_launched := Time.get_ticks_msec()
 
 func _ready() -> void:
+	_show_loading_image()
 	ANALYTICS.record("app_start", {}, ANALYTICS.new_operation())
 	ANALYTICS.record("session_start", {"reason": "launch"}, ANALYTICS.new_operation())
 	save_manager.cloud_sync_failed.connect(_on_cloud_sync_failed)
@@ -33,7 +36,29 @@ func _ready() -> void:
 	monetization_service.refresh_saved_state()
 	audio_manager.apply_settings(save_manager.load_data())
 	monetization_service.refresh_audio_pause_state()
+	_hide_loading_image()
 	_show_startup_splash()
+
+
+func _show_loading_image() -> void:
+	_loading_layer = CanvasLayer.new()
+	_loading_layer.name = "LoadingImage"
+	_loading_layer.layer = 1
+	var image := TextureRect.new()
+	image.name = "Art"
+	image.texture = LOADING_IMAGE
+	image.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	image.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_loading_layer.add_child(image)
+	add_child(_loading_layer)
+
+
+func _hide_loading_image() -> void:
+	if is_instance_valid(_loading_layer):
+		_loading_layer.queue_free()
+		_loading_layer = null
 
 
 func skip_startup_splash() -> void:

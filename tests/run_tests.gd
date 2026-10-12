@@ -226,6 +226,18 @@ func _test_yandex_platform_contract() -> void:
 	_expect_true(shell.contains("getPriceCurrencyImage('small')"), "Yandex currency icon comes from the SDK")
 	var export_presets := ConfigFile.new()
 	_expect_equal(export_presets.load("res://export_presets.cfg"), OK, "Export presets load")
+	var web_preset_count := 0
+	for preset_section in export_presets.get_sections():
+		if export_presets.get_value(preset_section, "platform", "") != "Web":
+			continue
+		web_preset_count += 1
+		var preset_name := str(export_presets.get_value(preset_section, "name", preset_section))
+		var include_filter := str(export_presets.get_value(preset_section, "include_filter", ""))
+		_expect_true(
+			include_filter.split(",").has("config/game_analytics.cfg"),
+			"%s exports the non-resource production analytics config" % preset_name
+		)
+	_expect_equal(web_preset_count, 5, "Every configured Web export includes the analytics config")
 	var yandex_features := str(export_presets.get_value("preset.1", "custom_features", ""))
 	_expect_true(yandex_features.split(",").has("yandex_games"), "Yandex production export enables its platform adapter")
 	_expect_true(not yandex_features.split(",").has("no_purchases"), "Yandex production export enables the declared remove_ads purchase")

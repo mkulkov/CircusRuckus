@@ -16,9 +16,21 @@
 			touch-action: none;
 		}
 		body {
+			position: relative;
+			isolation: isolate;
 			display: flex;
 			align-items: center;
 			justify-content: center;
+		}
+		body::before {
+			content: "";
+			position: fixed;
+			inset: -36px;
+			z-index: -1;
+			background: url("__CLOWNSMASH_TENT_BACKDROP__") center / cover no-repeat;
+			filter: blur(30px) saturate(.78) brightness(.58);
+			transform: scale(1.06);
+			pointer-events: none;
 		}
 		#game-frame {
 			position: relative;
