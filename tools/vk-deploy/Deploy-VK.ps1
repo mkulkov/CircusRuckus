@@ -119,8 +119,19 @@ try {
 
     Push-Location $deployDirectory
     try {
-        & npm run deploy
-        if ($LASTEXITCODE -ne 0) { throw "VK deploy CLI failed with exit code $LASTEXITCODE." }
+        $previousEnvironment = [Environment]::GetEnvironmentVariable('MINI_APPS_ENVIRONMENT', 'Process')
+        try {
+            $selectedEnvironment = switch ($Target) {
+                'Dev' { 'dev' }
+                'Prod' { 'production' }
+                'Both' { $null }
+            }
+            [Environment]::SetEnvironmentVariable('MINI_APPS_ENVIRONMENT', $selectedEnvironment, 'Process')
+            & npm run deploy
+            if ($LASTEXITCODE -ne 0) { throw "VK deploy CLI failed with exit code $LASTEXITCODE." }
+        } finally {
+            [Environment]::SetEnvironmentVariable('MINI_APPS_ENVIRONMENT', $previousEnvironment, 'Process')
+        }
     }
     finally {
         Pop-Location
