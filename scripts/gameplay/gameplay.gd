@@ -295,8 +295,6 @@ func _on_character_hit(_slot_index: int, character_type: StringName) -> void:
 		_impact_fx_layer.show_bomb_confetti(impact_global)
 	elif character_type == &"clock":
 		audio_manager.play_event(&"clock")
-		hud.show_feedback(tr("SPAWN_SLOWDOWN"))
-		_impact_fx_layer.show_score(impact_global, tr("SPAWN_SLOWDOWN"), true)
 	elif character_type == &"glutton":
 		audio_manager.play_event(&"apple_restore")
 		hud.show_feedback(tr("LIFE_BONUS") if lives_before < 3 else tr("FULL"))
@@ -367,7 +365,6 @@ func _on_countdown_changed(text: String) -> void:
 
 
 func _on_confusion_changed(remaining: int) -> void:
-	hud.set_confusion(remaining)
 	spawn_director.set_confusion_remaining(remaining)
 
 

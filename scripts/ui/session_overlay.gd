@@ -387,8 +387,6 @@ func _draw_result() -> void:
 func _get_result_lines() -> Array[String]:
 	if is_showing_round_result():
 		var round_lines: Array[String] = [tr("ROUND_SCORE_VALUE") % _result_score, tr("TOTAL_SCORE_VALUE") % int(_result_details.total_score), tr("BEST_COMBO_VALUE") % _result_combo, tr("ROUND_LIVES_VALUE") % int(_result_details.lives)]
-		if _result_save_error:
-			round_lines.append(tr("PROGRESS_NOT_SAVED"))
 		return round_lines
 	var total := maxi(0, floori(float(_result_details.get("active_seconds", 0.0))))
 	var duration := "%d:%02d" % [total / 60, total % 60]
@@ -396,8 +394,6 @@ func _get_result_lines() -> Array[String]:
 	var lines: Array[String] = [tr("SCORE_VALUE") % _result_score, tr("HISTORICAL_BEST") % previous_best, tr("BEST_COMBO_VALUE") % _result_combo, tr("RUN_ROUNDS") % int(_result_details.get("rounds", 0)), tr("RUN_TIME") % duration]
 	if _result_score > previous_best and not _result_save_error:
 		lines.append(tr("NEW_RECORD"))
-	if _result_save_error:
-		lines.append(tr("PROGRESS_NOT_SAVED"))
 	var wrapped: Array[String] = []
 	for line in lines:
 		wrapped.append_array(_wrap_text(line, 580.0, 30))

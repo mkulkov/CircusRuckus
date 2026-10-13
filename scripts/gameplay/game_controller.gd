@@ -231,7 +231,6 @@ func resolve_character_hit(character_type: StringName) -> void:
 			reset_combo()
 			confused_strikes_remaining = DRUNK_CONFUSION_STRIKES
 			confusion_changed.emit(confused_strikes_remaining)
-			feedback_requested.emit(tr("CONFUSION_STRIKES") % DRUNK_CONFUSION_STRIKES)
 	progress_changed.emit()
 
 

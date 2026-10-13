@@ -14,7 +14,6 @@ const LOADING_IMAGE := preload("res://assets/generated/boot_splash_clown_chase.p
 @onready var monetization_service: MonetizationService = $MonetizationService
 
 var _current_screen: Node
-var _cloud_sync_error := false
 var _loading_layer: CanvasLayer
 
 
@@ -24,7 +23,6 @@ func _ready() -> void:
 	_show_loading_image()
 	ANALYTICS.record("app_start", {}, ANALYTICS.new_operation())
 	ANALYTICS.record("session_start", {"reason": "launch"}, ANALYTICS.new_operation())
-	save_manager.cloud_sync_failed.connect(_on_cloud_sync_failed)
 	save_manager.configure_web_profile()
 	monetization_service.configure(save_manager, audio_manager)
 	settings_overlay.configure_monetization(monetization_service)
@@ -128,8 +126,6 @@ func _open_run(run_mode: String) -> void:
 	)
 	gameplay.new_game_requested.connect(start_run)
 	gameplay.settings_requested.connect(_show_settings)
-	if _cloud_sync_error:
-		gameplay.hud.show_feedback(tr("CLOUD_SYNC_FAILED"))
 
 
 func _start_after_loss_ad(gameplay: Node) -> void:
@@ -172,9 +168,3 @@ func _on_platform_resume_requested() -> void:
 
 func _exit_tree() -> void:
 	ANALYTICS.record("session_end", {"reason": "exit", "duration_sec": clampf((Time.get_ticks_msec() - _analytics_launched) / 1000.0, 0.0, 604800.0)}, ANALYTICS.new_operation())
-
-
-func _on_cloud_sync_failed() -> void:
-	_cloud_sync_error = true
-	if is_instance_valid(_current_screen) and _current_screen.get_node_or_null("HUD") != null:
-		_current_screen.get_node("HUD").show_feedback(tr("CLOUD_SYNC_FAILED"))

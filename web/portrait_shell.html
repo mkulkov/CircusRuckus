@@ -42,6 +42,17 @@
 			overflow: hidden;
 			background: $GODOT_SPLASH_COLOR;
 		}
+		@media (max-aspect-ratio: 9 / 16) {
+			#game-frame {
+				width: 100vw;
+				height: 100vh;
+				height: 100dvh;
+				max-width: 100vw;
+				max-height: 100vh;
+				max-height: 100dvh;
+				aspect-ratio: auto;
+			}
+		}
 		#canvas {
 			display: block;
 			width: 100%;
@@ -443,7 +454,7 @@
 	<script src="$GODOT_URL"></script>
 	<script>
 		const config = $GODOT_CONFIG;
-		config.canvasResizePolicy = 0;
+		config.canvasResizePolicy = 1;
 		const engine = new Engine(config);
 		engine.startGame().then(() => {
 			document.getElementById('status').remove();

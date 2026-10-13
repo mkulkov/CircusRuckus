@@ -28,9 +28,6 @@ var _remaining_time: float = 25.0
 var _round_index: int = 1
 var _phase: String = ""
 var _pattern: String = ""
-var _recovery_hits: int = 0
-var _recovery_available: bool = false
-var _confusion_remaining: int = 0
 var _feedback_text: String = ""
 var _feedback_time: float = 0.0
 var _message_font: FontVariation
@@ -81,19 +78,11 @@ func set_round(index: int, phase: String, pattern: String = "") -> void:
 	queue_redraw()
 
 
-func set_run_details(max_combo: int, recovery_hits: int, recovery_available: bool) -> void:
+func set_run_details(max_combo: int, _recovery_hits: int, _recovery_available: bool) -> void:
 	var next_max := clampi(max_combo, 0, 9007199254740991)
-	var next_recovery := clampi(recovery_hits, 0, 20)
-	if _max_combo == next_max and _recovery_hits == next_recovery and _recovery_available == recovery_available:
+	if _max_combo == next_max:
 		return
 	_max_combo = next_max
-	_recovery_hits = next_recovery
-	_recovery_available = recovery_available
-	queue_redraw()
-
-
-func set_confusion(value: int) -> void:
-	_confusion_remaining = maxi(value, 0)
 	queue_redraw()
 
 
@@ -168,16 +157,9 @@ func _draw() -> void:
 		var warning := _feedback_text in [tr("BOMB_LIFE"), tr("GLUTTON_ESCAPED"), tr("THREE_MISSES_LIFE")]
 		if warning:
 			feedback_color = Color("ff9a87")
-		elif _feedback_text.begins_with(tr("CONFUSION_STRIKES").get_slice("%d", 0)) or _feedback_text == tr("HAMMER_CONFUSED"):
+		elif _feedback_text == tr("HAMMER_CONFUSED"):
 			feedback_color = Color("e0b7ff")
 		_draw_message_banner(_feedback_text, message_rect, feedback_color, warning)
-	else:
-		if _confusion_remaining > 0:
-			_draw_message_banner(tr("CONFUSION_VALUE") % _confusion_remaining, message_rect, Color("e0b7ff"))
-		elif _recovery_available:
-			_draw_message_banner(tr("RECOVERY_PROGRESS") % _recovery_hits, message_rect, Color("baffc1"))
-		else:
-			_draw_message_banner("", message_rect, Color("fff1a3"))
 
 
 func _draw_ticket(kind: StringName, rect: Rect2) -> void:

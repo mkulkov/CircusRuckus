@@ -29,15 +29,12 @@ LEVEL_FAILED,TRY AGAIN!,НЕ ПОЛУЧИЛОСЬ!
 SCORE_VALUE,Score: %d,Очки: %d
 BEST_COMBO_VALUE,Best series: %d,Лучшая серия: %d
 TARGET_VALUE,Target: %d,Цель: %d
-PROGRESS_NOT_SAVED,PROGRESS NOT SAVED,ПРОГРЕСС НЕ СОХРАНЁН
 LEVEL_VALUE,LEVEL %d,УРОВЕНЬ %d
 SCORE,SCORE,ОЧКИ
 COMBO,SERIES,СЕРИЯ
 GOLD_VALUE,GOLD %d/%d,ЗОЛОТО %d/%d
-CONFUSION_VALUE,CONFUSION %d,ПУТАНИЦА %d
 HAMMER_CONFUSED,WRONG BOX!,МОЛОТОК СБИЛСЯ!
 MISS,MISS!,ПРОМАХ!
-SPAWN_SLOWDOWN,SPAWNS ×0.5 · 5 SEC,ПОЯВЛЕНИЕ ×0.5 · 5 СЕК
 LIFE_BONUS,+1 HAMMER,+1 МОЛОТОК
 FULL,FULL,ПОЛНО
 HINT_CLOCK,Clock: half spawn speed for 5 seconds. Series stays.,Часы: появление вдвое медленнее на 5 секунд. Серия сохраняется.
@@ -50,7 +47,6 @@ BOMB_LIFE,BOMB! -1 HAMMER,БОМБА! -1 МОЛОТОК
 TIME_LIMIT,TIME LIMIT,ЛИМИТ ВРЕМЕНИ
 APPLE_BONUS,+1 HAMMER,+1 МОЛОТОК
 APPLES_FULL,ALL HAMMERS RESTORED,ВСЕ МОЛОТКИ НА МЕСТЕ
-CONFUSION_STRIKES,CONFUSION: %d STRIKE,ПУТАНИЦА: %d УДАР
 GLUTTON_ESCAPED,GLUTTON ESCAPED,ОБЖОРА УБЕЖАЛ
 CLOCK_ESCAPED,CLOCK MISSED,ЧАСЫ УШЛИ
 BONUS_MISSED,BONUS MISSED,МИМО БОНУСА
@@ -106,7 +102,6 @@ MENU_TUTORIAL,TUTORIAL,ОБУЧЕНИЕ
 RUN_COMPLETE,NO HAMMERS LEFT,МОЛОТКИ ЗАКОНЧИЛИСЬ
 RUN_ROUNDS,Completed rounds: %d,Завершено раундов: %d
 RUN_TIME,Active time: %s,Активное время: %s
-RECOVERY_PROGRESS,Recovery %d/20,Восстановление %d/20
 TUTORIAL_ADVANCE,Next,Дальше
 MENU_RECORDS,"Score record: %d
 Series record: %d
@@ -132,7 +127,6 @@ TUTORIAL_GLUTTON_WAIT,Wait for Glutton to hide,"Подожди, пока Обж�
 TUTORIAL_NEXT_HINT,Keep practicing or tap Next,Тренируйся или нажми «Дальше»
 ROUND_TRANSITION,Round %d,Раунд %d
 RECOVERY_LIFE,Recovery hammer earned,Молоток восстановлен
-CLOUD_SYNC_FAILED,Cloud sync unavailable. Local progress is kept.,Облачная синхронизация недоступна. Прогресс сохранён локально.
 TRAINING_MODE_INTRO,Let’s practice!,Потренируемся!
 ROUND_RESULT_TITLE,Round %d complete,Раунд %d завершён
 ROUND_SCORE_VALUE,Round score: %d,Очки за раунд: %d

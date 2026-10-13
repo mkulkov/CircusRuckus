@@ -1,5 +1,16 @@
 # PROGRESS.md — Цирковой переполох
 
+## 2026-10-13 — Удалены служебные сообщения из игрового интерфейса
+
+- Убраны уведомления об облачной синхронизации, несохранённом прогрессе, восстановлении `n/20`, путанице и замедлении появления. Сохранение, игровые эффекты Clock/Drunk и визуальная анимация восстановления молотка сохранены.
+- Godot-тесты в этом проходе не запускались.
+
+## 2026-10-13 — Полноэкранный мобильный Web и версия в настройках
+
+- В портретном HTML-shell для высоких мобильных экранов поле игры занимает всю доступную высоту; canvas адаптивно меняет размер, сохраняя масштабирование Godot. Широкие окна по-прежнему показывают центрированное портретное поле.
+- В нижнем правом углу настроек отображается версия из `application/config/version`.
+- PASS: Godot 4.7.2 import без диагностик; полный `tests/run_tests.gd`; `git diff --check`. VK-клиент на физическом телефоне после изменения не запускался.
+
 ## 2026-10-12 — Изображение во время загрузки Web-сборок
 
 - Во время асинхронной инициализации локализации и облачного профиля `SceneRouter` показывает полноэкранную цирковую иллюстрацию загрузки. Она закрывает пустой серый кадр после появления Godot canvas и убирается перед штатной стартовой заставкой.
@@ -1213,3 +1224,59 @@ Planned:
 - Resubmitted at the user's request as task 1791830007. VK queue returned a Production deploy-complete event (code 201). Readback against the 1.0.11 runtime found seven of nine files matching, but `index.html` and `index.pck` still byte-for-byte match 1.0.6, including with cache-control bypass attempts; live product content is therefore not fully updated/verified. The uploaded ZIP entries for both files match the 1.0.11 release, so the mismatch is downstream of the local release archive.
 - Full Production update completed through task 1791830613. VK returned the Production URL `https://prod-app54768735-dc25e0f3db17.pages-ac.vk-apps.ru/index.html`; all 9 runtime files were read back from that URL and SHA-256 matched release 1.0.11. The earlier `0d50f0402e66` URL remains an older hosting snapshot (1.0.6). The current PCK matches the validated production analytics configuration; ad integration is present in the build, but actual ad fill and live analytics-event delivery were not tested in a VK client.
 - Uploaded the same VK 1.0.11 release to Dev with task `1791831776`. VK returned `https://stage-app54768735-a665644b74b5.pages.vk-apps.ru/index.html`; all 9 files read back through Playwright and SHA-256 matched the release runtime. The placement page now shows this stage URL for all three platforms and no unsaved changes. Developer-mode checkboxes read unchecked for all three after deployment; VK container gameplay was not tested.
+
+### 2026-10-13 — VK promotional pack for release 1.0.11
+- Prepared promo/vk/pack_1_0_11_2026-10-13: universal/catalog/small icons, favicon, 1120x630 snippet, five genuine 600x1200 Russian runtime screenshots, source captures, previews, manifest, provenance and QA. Canonical card texts are promo/vk/VK_MINI_APPS_STORE_TEXTS.md; ZIP is promo/vk/VK_promo_1_0_11_2026-10-13.zip.
+- Reused existing release, without export/version bump. Release ZIP hash matches manifest; hosted index.pck SHA256 matches local release. Captures used normal input in the standalone hosted build with Bridge/analytics blocked; score/HUD were not fabricated.
+- Validation: all 10 rasters Pass with VK card validator; text lengths Pass; full images/contact sheet/mobile previews visually reviewed; wide 1440x900 canvas aspect preserved and no horizontal scroll. ZIP decoded and CRC verified. No gameplay code/resources changed; Godot tests not rerun for promotional files.
+- Limitations: VK app page did not open an iframe in the current session. Required in-container title/client captures remain unverified; official Design/Information freshness unavailable. This is a prepared local pack, not moderation readiness. No upload, cabinet edit, submission or publication performed.
+
+### 2026-10-13 — VK promotional pack v2, gallery replacement
+- Preserved the earlier pack and ZIP. Added promo/vk/pack_1_0_11_2026-10-13_v2 and VK_promo_1_0_11_2026-10-13_v2.zip: four genuine local runtime gameplay captures (visible hammer hit, Bomb, Clock, Golden), title capture inside VK desktop_web, five artwork items, originals, ordered contact sheet/previews, provenance, claims, manifest and marketing QA.
+- Capture uses the actual Gameplay scene, natural seeded spawns, normal input signal and round transitions; no score/life/HUD/spawn tuning fabrication. Analytics removed from this isolated capture tree, no platform/cloud service; separate save path. Tool stays under promo, already excluded by export presets. New captures are local debug runtime, not Web release or VK container proof.
+- Revised canonical promo/vk/VK_MINI_APPS_STORE_TEXTS.md to lead with action and personal-record challenge; exact gameplay effects and advertising disclosure retained. Previous text preserved inside v2/work. No gameplay implementation or release version changed.
+- Verification: capture completed, import exit 0 with zero diagnostics; all ten rasters Pass, text limits Pass, full artwork/screenshots and both preview sheets reviewed, archive CRC Pass. Gameplay tests not rerun because product code/resources were unchanged.
+- Platform readiness remains Blocked: source freshness could not be verified at official Design/Information URLs; new screenshots require release/container equivalence and capture inside VK, title now captured in desktop VK; actual snippet crop not checked. No cabinet modification, upload, moderation or publication performed.
+
+- Additional v2 read-only VK check: desktop_web iframe rendered menu and title at 394x700 with Bridge object present. Gallery title now uses that real canvas capture with preserved original and contain/pad adaptation to 600x1200. Console errors observed; SDK operation, other clients and gameplay captures inside VK remain unverified.
+
+### 2026-10-13 — VK promo from selected release Web runtime
+- User selected release. Prepared promo/vk/pack_1_0_11_2026-10-13_release and VK_promo_1_0_11_2026-10-13_release.zip. Reused release 1.0.11 without export/version bump; fresh browser fetch of hosted index.pck matches local SHA256 59296ace6656e4d5214bbe15a67b3799cd76a47467264f6c0d908dc3f0a6a434.
+- Played training and first two endless rounds through ordinary browser input. New 600x1200 release captures show hammer/+10, Bomb, Clock with Glutton, and two Golden targets; preserved before/after candidates and prior packs. Reused documented desktop VK title original with contain/pad adaptation. Artwork and canonical texts retained.
+- Validation: 10 VK raster checks PASS, four text field lengths PASS, selected full images/alternatives/contact sheets/previews reviewed, common hash-bound promo_qa check PASS, manifest image hashes and ZIP CRC PASS. Product code/resources unchanged; Godot tests not required/rerun for promo-only files.
+- Platform readiness remains BLOCKED: new gameplay is standalone hosted Web with Bridge/analytics blocked, not in-container VK capture; mobile clients and actual snippet crop unverified. Reused title provenance not revalidated inside VK in this pass. Official Design/Information freshness check unavailable. No cabinet changes, uploads, moderation or publication.
+
+### 2026-10-13 — VK card update attempt
+- Browser safety policy blocked navigation to dev.vk.com/ru/mini-apps and explicitly prohibits alternate-browser/API workarounds. No card fields or media were uploaded or changed; no moderation/publication action occurred. The prepared 1.0.11 promo pack and existing canonical card text remain local, with in-VK capture and snippet crop still unverified.
+
+
+## 2026-10-13 — VK card refresh from release promo archive
+- Playwright authenticated cabinet confirmed app 54768735, creator access, portrait gallery, not in catalog/featuring.
+- Every ZIP entry hash matches the existing local promo files. New description (687), short description (90), slogan (29) filled in browser but not saved.
+- Existing card text and image URLs recorded under promo/vk/work/card_before_*_2026-10-13.json.
+- Pending immediate user confirmation to save texts, replace five artwork files and replace the existing three screenshots with five archive screenshots. Moderation/visibility changes outside this operation.
+
+
+### VK card refresh completed after user confirmation
+- Saved description 687 chars, short description 90 chars and slogan 29 chars; read back after page reload.
+- Uploaded universal/catalog/small icons, favicon and large snippet from supplied archive.
+- Removed three old gallery images and uploaded five in archive order. Reload verified all five (cabinet initially displays only first three; expand reveals five). Portrait orientation preserved.
+- Saved readback JSON and cabinet screenshots in promo/vk/work/card_after_* and gallery_final.png; visually checked gallery order and snippet.
+- No moderation submission or visibility change. Godot checks not applicable to cabinet-only changes.
+
+## 2026-10-13 — New circus snippet candidate
+- Generated a separate 1120x630 PNG at promo/vk/large_snippet_all_characters_2026-10-13.png with circus marquee title, slogan and all seven resource characters per explicit user request.
+- Includes currently disabled Drunk character; this is user-requested promotional illustration, not gameplay screenshot or proof of enabled gameplay.
+- Visually checked Cyrillic text and seven distinct characters. Source retained in promo/vk/work/snippet_2026-10-13. Existing pack and VK card unchanged; candidate awaits user review. VK overlay/client validation remains unverified.
+
+
+## 2026-10-13 — Dev/Prod hosted audit
+- Both VK targets match release 1.0.11: nine files each, 18/18 SHA256 matches. Dev is the same release export, not a separate debug export.
+- Downloaded PCK analytics production configuration verified on both. Actual app_start/session_start delivery acknowledged accepted=2 for each browser launch.
+- Cabinet monetization connected, banner/interstitial Bridge methods supported; CheckNativeAds result=true on both. Actual ad playback/completed impression not tested.
+- Separate cloud progress write HTTP 400 on both; local-v2 fallback warning observed. No deployment/settings/moderation changes. Evidence: verification/vk_hosted_2026-10-13/REPORT.md and hashes.json.
+
+## 2026-10-13 — VK Prod release 1.0.12
+- Rebuilt Web - VK Mini Apps Release 1.0.12 (version code 13). Godot 4.7.2 headless import, full `tests/run_tests.gd`, and VK release validation passed. Release PCK analytics config is production, contract-verified, and set to `vk` / 1.0.12.
+- Production deploy task 1791908338 was confirmed on the phone. Readback of all nine hosted runtime files matches local SHA256 values (9/9); evidence in `verification/vk_release_1_0_12/REPORT.md` and `hashes.json`.
+- Direct-host browser debug loaded the title menu. Cloud initialization timed out outside the VK container; local progress fallback remained available. Actual VK-container gameplay and analytics event delivery for 1.0.12 were not reverified. Ads cabinet/API availability was confirmed in the same-day audit; actual ad playback/impression was not tested.

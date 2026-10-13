@@ -323,8 +323,7 @@ func _complete_lesson() -> void:
 	_mastered[lesson] = true
 	_repeat_mastered[lesson] = true
 	learned[lesson] = true
-	if not gameplay.save_manager.learn_lesson(String(lesson)):
-		gameplay.hud.show_feedback(tr("PROGRESS_NOT_SAVED"))
+	gameplay.save_manager.learn_lesson(String(lesson))
 	demonstrating = false
 	var generation := _generation
 	var step := _step_generation
