@@ -4,7 +4,7 @@
 
 - Собран релиз `builds/release/vk/ru_mkulkov_circusruckus_1_0_17.zip` (код 18; SHA-256 `152407BB0E405DACEA15C562A3CC283E5D79FE59485C5ECC663EDEF2FBB32C7C`). Production-аналитика включена в релизный экспорт; локальная `config/game_analytics.cfg` восстановлена. VK-рекламный адаптер включён в пресет.
 
-- PASS: Godot import без диагностик; полный `tests/run_tests.gd`; `tests/vk_bridge_test.mjs`; deploy-пакет содержит ровно 9 runtime-файлов. Dev/Prod deployment pending. Фактические показы рекламы, доставка событий аналитики и игровой запуск внутри VK-контейнера не проверялись.
+- PASS: Godot import без диагностик; полный `tests/run_tests.gd`; `tests/vk_bridge_test.mjs`; deploy-пакет содержит ровно 9 runtime-файлов. Dev (`1791920435`): https://stage-app54768735-6b0352e73a4a.pages.vk-apps.ru/index.html; Prod (`1791920566`): https://prod-app54768735-61f1233f9b8d.pages-ac.vk-apps.ru/index.html. На обоих адресах все 9 runtime-файлов отвечают HTTP 200 и совпадают с локальным runtime по SHA-256. Фактические показы рекламы, доставка событий аналитики и игровой запуск внутри VK-контейнера не проверялись.
 
 ## 2026-10-13 — Проверена пауза звука при потере фокуса
 
