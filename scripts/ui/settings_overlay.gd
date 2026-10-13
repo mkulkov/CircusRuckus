@@ -40,8 +40,8 @@ func _ready() -> void:
 	_version_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_version_label.modulate = Color(0.82, 0.78, 0.9, 0.9)
 	_version_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_version_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	add_child(_version_label)
+	_version_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	resized.connect(_layout)
 	_layout()
 	_refresh_translations()
@@ -148,6 +148,6 @@ func _layout() -> void:
 	_close_button.position = Vector2(340.0, 1260.0) * scale_factor
 	_close_button.size = Vector2(400.0, 100.0) * scale_factor
 	_close_button.add_theme_font_size_override("font_size", maxi(22, roundi(34.0 * scale_factor)))
-	_version_label.position = Vector2(-260.0 * scale_factor - 20.0, -56.0 * scale_factor - 16.0)
-	_version_label.size = Vector2(260.0 * scale_factor, 36.0 * scale_factor)
-	_version_label.add_theme_font_size_override("font_size", maxi(14, roundi(30.0 * scale_factor)))
+	_version_label.position = Vector2(620.0, 1370.0) * scale_factor
+	_version_label.size = Vector2(220.0, 32.0) * scale_factor
+	_version_label.add_theme_font_size_override("font_size", maxi(14, roundi(28.0 * scale_factor)))

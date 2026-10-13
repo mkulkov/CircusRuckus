@@ -42,21 +42,10 @@
 			overflow: hidden;
 			background: $GODOT_SPLASH_COLOR;
 		}
-		@media (max-aspect-ratio: 9 / 16) {
-			#game-frame {
-				width: 100vw;
-				height: 100vh;
-				height: 100dvh;
-				max-width: 100vw;
-				max-height: 100vh;
-				max-height: 100dvh;
-				aspect-ratio: auto;
-			}
-		}
 		#canvas {
 			display: block;
-			width: 100%;
-			height: 100%;
+			width: 100% !important;
+			height: 100% !important;
 			outline: none;
 		}
 		#status {
@@ -109,6 +98,16 @@
 			let vkEntitlementCallback = null;
 			let vkEntitlementSubscribed = false;
 			let vkEntitlementVersion = 0;
+			let documentLifecycleSubscribed = false;
+			const attachDocumentLifecycle = () => {
+				if (documentLifecycleSubscribed || typeof document === 'undefined') return;
+				documentLifecycleSubscribed = true;
+				documentHidden = document.visibilityState === 'hidden';
+				document.addEventListener('visibilitychange', () => {
+					documentHidden = document.visibilityState === 'hidden'; updateVisibility();
+				});
+				updateVisibility();
+			};
 			const refreshVkEntitlement = () => {
 				if (platform !== 'vk' || vkPaymentPending || !vkEntitlementCallback) return;
 				const version = vkEntitlementVersion;
@@ -171,6 +170,7 @@
 					});
 					return initializationPromise;
 				}
+				attachDocumentLifecycle();
 				if (typeof vkBridge !== 'undefined') {
 					platform = 'vk';
 					initializationPromise = vkBridge.send('VKWebAppInit')
@@ -180,9 +180,6 @@
 								if (type === 'VKWebAppViewHide' || type === 'VKWebAppViewRestore') {
 									hostHidden = type === 'VKWebAppViewHide'; updateVisibility();
 								}
-							});
-							document.addEventListener('visibilitychange', () => {
-								documentHidden = document.visibilityState === 'hidden'; updateVisibility();
 							});
 							return { platform: isOk ? 'ok' : platform, locale: '' };
 						})
@@ -454,7 +451,7 @@
 	<script src="$GODOT_URL"></script>
 	<script>
 		const config = $GODOT_CONFIG;
-		config.canvasResizePolicy = 1;
+		config.canvasResizePolicy = 0;
 		const engine = new Engine(config);
 		engine.startGame().then(() => {
 			document.getElementById('status').remove();

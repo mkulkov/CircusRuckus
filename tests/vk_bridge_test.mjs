@@ -68,6 +68,32 @@ function setup(yandex = false) {
   return { bridge, state, calls, listeners, expireOrder: () => orderTimeout(), expireAd: ms => adTimeouts.get(ms)() };
 }
 
+// The hosted URL can also be opened directly in a mobile browser without VK Bridge.
+{
+  const listeners = new Map();
+  const state = { pauses: 0, resumes: 0 };
+  const context = {
+    console, URLSearchParams,
+    window: { location: { search: '' } },
+    document: {
+      visibilityState: 'visible',
+      addEventListener: (name, callback) => listeners.set(name, callback),
+    },
+  };
+  vm.runInNewContext(source, context);
+  const bridge = context.window.ClownSmashPlatform;
+  bridge.initialize(() => {});
+  bridge.subscribeLifecycle(() => state.pauses++, () => state.resumes++);
+  await flush();
+  context.document.visibilityState = 'hidden';
+  listeners.get('visibilitychange')();
+  listeners.get('visibilitychange')();
+  assert.equal(state.pauses, 1, 'browser background pauses once without VK Bridge');
+  context.document.visibilityState = 'visible';
+  listeners.get('visibilitychange')();
+  assert.equal(state.resumes, 1, 'browser foreground resumes once without VK Bridge');
+}
+
 for (const adResult of [true, false]) {
   const { bridge, state } = setup(); await flush(); state.adResult = adResult;
   let availability; bridge.checkAdAvailability(value => availability = JSON.parse(value)); await flush();

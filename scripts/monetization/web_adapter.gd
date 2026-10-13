@@ -33,10 +33,9 @@ func _on_initialized(arguments: Array) -> void:
 	var data := _decode_callback_dictionary(arguments)
 	_platform = str(data.get("platform", ""))
 	platform_name = _platform if not _platform.is_empty() else "web"
-	if not _platform.is_empty():
-		_platform_pause_callback = JavaScriptBridge.create_callback(_on_platform_pause)
-		_platform_resume_callback = JavaScriptBridge.create_callback(_on_platform_resume)
-		_bridge.subscribeLifecycle(_platform_pause_callback, _platform_resume_callback)
+	_platform_pause_callback = JavaScriptBridge.create_callback(_on_platform_pause)
+	_platform_resume_callback = JavaScriptBridge.create_callback(_on_platform_resume)
+	_bridge.subscribeLifecycle(_platform_pause_callback, _platform_resume_callback)
 	initialized.emit(not _platform.is_empty())
 
 
