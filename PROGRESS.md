@@ -1280,3 +1280,9 @@ Planned:
 - Rebuilt Web - VK Mini Apps Release 1.0.12 (version code 13). Godot 4.7.2 headless import, full `tests/run_tests.gd`, and VK release validation passed. Release PCK analytics config is production, contract-verified, and set to `vk` / 1.0.12.
 - Production deploy task 1791908338 was confirmed on the phone. Readback of all nine hosted runtime files matches local SHA256 values (9/9); evidence in `verification/vk_release_1_0_12/REPORT.md` and `hashes.json`.
 - Direct-host browser debug loaded the title menu. Cloud initialization timed out outside the VK container; local progress fallback remained available. Actual VK-container gameplay and analytics event delivery for 1.0.12 were not reverified. Ads cabinet/API availability was confirmed in the same-day audit; actual ad playback/impression was not tested.
+
+## 2026-10-13 — VK release 1.0.13 deployed to Dev and Prod
+- Updated the public GitHub `main` with project UI/localization/mobile Web changes in commit `2ac9119` before release export. After export, release version metadata is 1.0.13 / code 14.
+- Godot 4.7.2 import and full `tests/run_tests.gd` passed. Release PCK analytics config: production, contract-verified, platform `vk`, version 1.0.13. VK banner/interstitial bridge remains integrated; cabinet/API ad availability was previously confirmed today, but actual playback/impression was not tested.
+- Dev deploy task 1791910418 succeeded; combined Dev+Prod task 1791910579 was confirmed on the phone and completed. Both hosted URLs returned all nine files matching local SHA-256. Prod: `https://prod-app54768735-780ed584d251.pages-ac.vk-apps.ru/index.html`; Dev URL and hash evidence are in ignored local verification files under `verification/vk_release_1_0_13/`.
+- Direct-host smoke check reached the 1080x1920 WebGL2 game canvas with no browser console errors. VK-container gameplay, analytics collector delivery, cloud writes, and actual ad impression remain unverified.
