@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Цирковой переполох"
-config/version="1.0.16"
+config/version="1.0.17"
 run/main_scene="res://scenes/boot/Boot.tscn"
 config/features=PackedStringArray("4.7")
 boot_splash/bg_color=Color(0.047, 0.027, 0.102, 1)

@@ -74,7 +74,10 @@ function setup(yandex = false) {
   const state = { pauses: 0, resumes: 0 };
   const context = {
     console, URLSearchParams,
-    window: { location: { search: '' } },
+    window: {
+      location: { search: '' },
+      addEventListener: (name, callback) => listeners.set(name, callback),
+    },
     document: {
       visibilityState: 'visible',
       addEventListener: (name, callback) => listeners.set(name, callback),
@@ -85,13 +88,22 @@ function setup(yandex = false) {
   bridge.initialize(() => {});
   bridge.subscribeLifecycle(() => state.pauses++, () => state.resumes++);
   await flush();
+
+  listeners.get('blur')();
+  assert.equal(state.pauses, 1, 'browser focus loss pauses once without VK Bridge');
+  listeners.get('focus')();
+  assert.equal(state.resumes, 1, 'browser focus regain resumes once without VK Bridge');
+
   context.document.visibilityState = 'hidden';
+  listeners.get('blur')();
   listeners.get('visibilitychange')();
   listeners.get('visibilitychange')();
-  assert.equal(state.pauses, 1, 'browser background pauses once without VK Bridge');
+  assert.equal(state.pauses, 2, 'overlapping blur and tab-hidden events pause once');
+  listeners.get('focus')();
+  assert.equal(state.resumes, 1, 'focus alone does not resume a hidden tab');
   context.document.visibilityState = 'visible';
   listeners.get('visibilitychange')();
-  assert.equal(state.resumes, 1, 'browser foreground resumes once without VK Bridge');
+  assert.equal(state.resumes, 2, 'visible tab resumes once without VK Bridge');
 }
 
 for (const adResult of [true, false]) {

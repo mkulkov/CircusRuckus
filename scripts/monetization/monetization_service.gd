@@ -28,13 +28,10 @@ var _pending_interstitial: Callable
 var _pending_run_ad_eligible := false
 var _pending_ad_show_started := false
 var _purchase_pending := false
-var _audio_muted_for_ad := false
-var _music_was_muted := false
-var _sfx_was_muted := false
 var _game_ready_sent := false
 var _adapter_initialization_started := false
 var _adapter_ready := false
-var _platform_lifecycle_active := false
+var _lifecycle_pause_reasons: Dictionary = {}
 var _audio_pause_reasons: Dictionary = {}
 var _remove_ads_price := ""
 var _remove_ads_title := ""
@@ -56,6 +53,12 @@ func _ready() -> void:
 	_prepare_adapter()
 	if _save_manager != null:
 		_start_adapter()
+
+func _notification(what: int) -> void:
+	if what in [NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT]:
+		_set_lifecycle_pause_reason(&"application", true)
+	elif what in [NOTIFICATION_APPLICATION_RESUMED, NOTIFICATION_APPLICATION_FOCUS_IN]:
+		_set_lifecycle_pause_reason(&"application", false)
 
 func _prepare_adapter() -> void:
 	if _adapter != null:
@@ -124,7 +127,7 @@ func set_gameplay_active(active: bool) -> void:
 		_adapter.set_gameplay_active(active)
 
 func is_platform_lifecycle_active() -> bool:
-	return _platform_lifecycle_active
+	return not _lifecycle_pause_reasons.is_empty()
 
 
 func are_purchases_enabled() -> bool:
@@ -285,36 +288,38 @@ func refresh_audio_pause_state() -> void:
 	var should_mute := not _audio_pause_reasons.is_empty()
 	var music_bus := AudioServer.get_bus_index(&"Music")
 	var sfx_bus := AudioServer.get_bus_index(&"SFX")
-	if should_mute:
-		if not _audio_muted_for_ad:
-			if music_bus >= 0:
-				_music_was_muted = AudioServer.is_bus_mute(music_bus)
-			if sfx_bus >= 0:
-				_sfx_was_muted = AudioServer.is_bus_mute(sfx_bus)
-		if music_bus >= 0:
-			AudioServer.set_bus_mute(music_bus, true)
-		if sfx_bus >= 0:
-			AudioServer.set_bus_mute(sfx_bus, true)
-	elif _audio_muted_for_ad:
-		if music_bus >= 0:
-			AudioServer.set_bus_mute(music_bus, _music_was_muted)
-		if sfx_bus >= 0:
-			AudioServer.set_bus_mute(sfx_bus, _sfx_was_muted)
-	_audio_muted_for_ad = should_mute
+	var music_enabled := true
+	var sound_enabled := true
+	if _audio_manager != null:
+		music_enabled = bool(_audio_manager.get("music_enabled"))
+		sound_enabled = bool(_audio_manager.get("sound_enabled"))
+	if music_bus >= 0:
+		AudioServer.set_bus_mute(music_bus, should_mute or not music_enabled)
+	if sfx_bus >= 0:
+		AudioServer.set_bus_mute(sfx_bus, should_mute or not sound_enabled)
 
 func _on_platform_pause_requested() -> void:
-	if _platform_lifecycle_active:
-		return
-	_platform_lifecycle_active = true
-	_set_audio_pause_reason(&"platform", true)
-	platform_pause_requested.emit()
+	_set_lifecycle_pause_reason(&"platform", true)
 
 func _on_platform_resume_requested() -> void:
-	if not _platform_lifecycle_active:
+	_set_lifecycle_pause_reason(&"platform", false)
+
+func _set_lifecycle_pause_reason(reason: StringName, active: bool) -> void:
+	var was_paused := not _lifecycle_pause_reasons.is_empty()
+	if active == _lifecycle_pause_reasons.has(reason):
 		return
-	platform_resume_requested.emit()
-	_platform_lifecycle_active = false
-	_set_audio_pause_reason(&"platform", false)
+	if active:
+		_lifecycle_pause_reasons[reason] = true
+	else:
+		_lifecycle_pause_reasons.erase(reason)
+	_set_audio_pause_reason(reason, active)
+	var is_paused := not _lifecycle_pause_reasons.is_empty()
+	if was_paused == is_paused:
+		return
+	if is_paused:
+		platform_pause_requested.emit()
+	else:
+		platform_resume_requested.emit()
 
 func _on_banner_status_changed(visible: bool, reason: String) -> void:
 	print("[ClownSmash][Ads] Sticky banner visible=%s reason=%s" % [visible, reason])

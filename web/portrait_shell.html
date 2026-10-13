@@ -75,8 +75,10 @@
 			let bannerGeneration = 0;
 			let hostHidden = false;
 			let documentHidden = false;
+			let windowBlurred = false;
+			let yandexPaused = false;
 			const updateVisibility = () => {
-				const hidden = hostHidden || documentHidden;
+				const hidden = hostHidden || documentHidden || windowBlurred || yandexPaused;
 				if (hidden === platformPaused) return;
 				platformPaused = hidden;
 				finish(hidden ? pauseCallback : resumeCallback);
@@ -100,12 +102,19 @@
 			let vkEntitlementVersion = 0;
 			let documentLifecycleSubscribed = false;
 			const attachDocumentLifecycle = () => {
-				if (documentLifecycleSubscribed || typeof document === 'undefined') return;
+				if (documentLifecycleSubscribed) return;
 				documentLifecycleSubscribed = true;
-				documentHidden = document.visibilityState === 'hidden';
-				document.addEventListener('visibilitychange', () => {
-					documentHidden = document.visibilityState === 'hidden'; updateVisibility();
-				});
+				if (typeof document !== 'undefined') {
+					documentHidden = document.visibilityState === 'hidden';
+					if (typeof document.hasFocus === 'function') windowBlurred = !document.hasFocus();
+					document.addEventListener('visibilitychange', () => {
+						documentHidden = document.visibilityState === 'hidden'; updateVisibility();
+					});
+				}
+				if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+					window.addEventListener('blur', () => { windowBlurred = true; updateVisibility(); });
+					window.addEventListener('focus', () => { windowBlurred = false; updateVisibility(); });
+				}
 				updateVisibility();
 			};
 			const refreshVkEntitlement = () => {
@@ -146,17 +155,18 @@
 				ysdk.on('game_api_pause', () => {
 					gameplayActiveBeforePlatformPause = gameplayActive;
 					gameplayActive = false;
-					platformPaused = true;
-					finish(pauseCallback);
+					yandexPaused = true;
+					updateVisibility();
 				});
 				ysdk.on('game_api_resume', () => {
-					platformPaused = false;
+					yandexPaused = false;
 					gameplayActive = gameplayActiveBeforePlatformPause;
-					finish(resumeCallback);
+					updateVisibility();
 				});
 			};
 			const ensureInitialized = () => {
 				if (initializationPromise) return initializationPromise;
+				attachDocumentLifecycle();
 				if (typeof YaGames !== 'undefined') {
 					platform = 'yandex';
 					initializationPromise = YaGames.init().then((sdk) => {
@@ -170,7 +180,6 @@
 					});
 					return initializationPromise;
 				}
-				attachDocumentLifecycle();
 				if (typeof vkBridge !== 'undefined') {
 					platform = 'vk';
 					initializationPromise = vkBridge.send('VKWebAppInit')

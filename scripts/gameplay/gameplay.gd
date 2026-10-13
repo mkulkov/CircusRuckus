@@ -104,15 +104,6 @@ func configure(requested_mode: String, shared_save_manager: Node, shared_audio_m
 	monetization_service = shared_monetization_service
 
 
-func _notification(what: int) -> void:
-	if game_controller == null:
-		return
-	if what == NOTIFICATION_APPLICATION_PAUSED:
-		handle_platform_pause()
-	elif what == NOTIFICATION_APPLICATION_RESUMED:
-		handle_platform_resume()
-
-
 func _configure_round() -> void:
 	_round_result_ready = false
 	_round_start_score = game_controller.score

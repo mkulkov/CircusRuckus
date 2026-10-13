@@ -1,10 +1,22 @@
 # PROGRESS.md — Цирковой переполох
 
+## 2026-10-13 — VK релиз 1.0.17 с рекламой и production-аналитикой
+
+- Собран релиз `builds/release/vk/ru_mkulkov_circusruckus_1_0_17.zip` (код 18; SHA-256 `152407BB0E405DACEA15C562A3CC283E5D79FE59485C5ECC663EDEF2FBB32C7C`). Production-аналитика включена в релизный экспорт; локальная `config/game_analytics.cfg` восстановлена. VK-рекламный адаптер включён в пресет.
+
+- PASS: Godot import без диагностик; полный `tests/run_tests.gd`; `tests/vk_bridge_test.mjs`; deploy-пакет содержит ровно 9 runtime-файлов. Dev/Prod deployment pending. Фактические показы рекламы, доставка событий аналитики и игровой запуск внутри VK-контейнера не проверялись.
+
+## 2026-10-13 — Проверена пауза звука при потере фокуса
+
+- Добавлены общие источники временной потери фокуса: браузерные `blur/focus`, скрытие/показ документа, lifecycle VK/Yandex и уведомления Godot об application focus/pause. События объединяются, поэтому дубли не снимают паузу преждевременно.
+- Временное приглушение Music/SFX теперь применяется поверх сохранённых `music_enabled`/`sound_enabled`; после возврата звук восстанавливается по текущим настройкам, а mute других причин (например, реклама) сохраняется.
+- PASS: Godot import без диагностик; полный `tests/run_tests.gd` (включая проверку focus/app-pause и настроек); VK/OK/Yandex bridge tests; `git diff --check`. Реальный телефон и опубликованный клиент в этом прогоне не запускались.
+
 ## 2026-10-13 — VK релиз 1.0.16 с рекламой и production-аналитикой
 
 - Собран управляемый релиз `builds/release/vk/ru_mkulkov_circusruckus_1_0_16.zip` (код 17; SHA-256 `17BDE82F05703D364FDA0A3D28F8F77D4FF7C4D4AADD34141E46C4180A43CAFE`). Экспорт включил production-аналитику; исходный `config/game_analytics.cfg` восстановлен в `mode=disabled`, `contract_verified=false`. VK рекламный адаптер включён в релизном пресете.
 - PASS: Godot import без диагностик; полный `tests/run_tests.gd`; `tests/vk_bridge_test.mjs`; `git diff --check`; проверка VK deploy-пакета — ровно 9 runtime-файлов.
-- Dev-загрузка ожидает подтверждения VK на телефоне; Prod ещё не запускался. Доставка событий аналитики, фактические показы рекламы и VK Bridge внутри контейнера этой сборкой локально не подтверждены.
+- Dev подтверждён (версия VK `1791916991`): https://stage-app54768735-2de1e7fdf082.pages.vk-apps.ru/index.html. Prod подтверждён на телефоне (версия `1791917390`): https://prod-app54768735-961668b5b83c.pages-ac.vk-apps.ru/index.html. Все 9 файлов на обоих хостингах отвечают HTTP 200 и совпадают с локальным runtime по SHA-256.
 
 ## 2026-10-13 — Пауза и отключение звука в фоне мобильного браузера
 

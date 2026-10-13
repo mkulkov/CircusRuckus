@@ -38,6 +38,7 @@ func _run() -> void:
 	_test_project_configuration()
 	_test_localization()
 	await _test_audio_manager()
+	await _test_focus_audio_lifecycle()
 	_test_scoring_and_combo()
 	_test_consecutive_misses()
 	_test_all_character_rules()
@@ -370,6 +371,53 @@ func _test_audio_manager() -> void:
 	_expect_true(not manager.music_enabled and not manager.sound_enabled and not manager.haptics_enabled, "Audio and haptics settings disable all categories")
 	manager.apply_settings({"music_enabled": true, "sound_enabled": true, "haptics_enabled": true})
 	_expect_true(manager.music_enabled and manager.sound_enabled and manager.haptics_enabled, "Audio and haptics settings re-enable all categories")
+	manager.queue_free()
+	await process_frame
+
+
+func _test_focus_audio_lifecycle() -> void:
+	var audio_script := load("res://scripts/audio/audio_manager.gd") as Script
+	var manager: Node = audio_script.new()
+	root.add_child(manager)
+	await process_frame
+	manager.apply_settings({"music_enabled": true, "sound_enabled": false, "haptics_enabled": true})
+	var service := MonetizationService.new()
+	service._audio_manager = manager
+	root.add_child(service)
+	await process_frame
+	var pause_events := [0]
+	var resume_events := [0]
+	service.platform_pause_requested.connect(func() -> void: pause_events[0] += 1)
+	service.platform_resume_requested.connect(func() -> void: resume_events[0] += 1)
+	service._on_platform_pause_requested()
+	service._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	service._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+	_expect_true(AudioServer.is_bus_mute(AudioServer.get_bus_index(&"Music")), "Losing application focus mutes music")
+	_expect_true(AudioServer.is_bus_mute(AudioServer.get_bus_index(&"SFX")), "Losing application focus mutes sound effects")
+	_expect_true(pause_events[0] == 1, "Platform, focus loss, and application pause share one lifecycle transition")
+	service._on_platform_resume_requested()
+	_expect_true(AudioServer.is_bus_mute(AudioServer.get_bus_index(&"Music")) and resume_events[0] == 0, "Platform resume cannot release an active native focus pause")
+	service._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
+	service._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
+	_expect_true(not AudioServer.is_bus_mute(AudioServer.get_bus_index(&"Music")), "Music resumes when enabled in settings")
+	_expect_true(AudioServer.is_bus_mute(AudioServer.get_bus_index(&"SFX")), "Sound effects stay muted when disabled in settings")
+	_expect_true(resume_events[0] == 1, "Focus return and application resume share one lifecycle transition")
+	service._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	manager.apply_settings({"music_enabled": false, "sound_enabled": true, "haptics_enabled": true})
+	service.refresh_audio_pause_state()
+	service._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
+	_expect_true(AudioServer.is_bus_mute(AudioServer.get_bus_index(&"Music")), "Focus return respects a music setting changed while unfocused")
+	_expect_true(not AudioServer.is_bus_mute(AudioServer.get_bus_index(&"SFX")), "Focus return restores effects enabled while unfocused")
+	manager.apply_settings({"music_enabled": true, "sound_enabled": false, "haptics_enabled": true})
+	service.refresh_audio_pause_state()
+	service._set_audio_pause_reason(&"interstitial", true)
+	service._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	service._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
+	_expect_true(AudioServer.is_bus_mute(AudioServer.get_bus_index(&"Music")), "Returning from focus does not release another audio pause reason")
+	service._set_audio_pause_reason(&"interstitial", false)
+	_expect_true(not AudioServer.is_bus_mute(AudioServer.get_bus_index(&"Music")) and AudioServer.is_bus_mute(AudioServer.get_bus_index(&"SFX")), "Clearing temporary mute restores current settings")
+	service.queue_free()
+	manager.apply_settings({"music_enabled": true, "sound_enabled": true, "haptics_enabled": true})
 	manager.queue_free()
 	await process_frame
 
