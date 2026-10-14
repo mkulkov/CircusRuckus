@@ -5,15 +5,15 @@
 [resource]
 script = ExtResource("1")
 display_name = "pressure"
-spawn_interval_min = 0.78
-spawn_interval_max = 1
+spawn_interval_min = 0.6782608696
+spawn_interval_max = 0.8695652174
 end_spawn_interval_multiplier = 0.94
 max_active_characters = 6
 max_decision_targets = 2
 double_spawn_chance = 0.18
-normal_visible_time = 1.65
+normal_visible_time = 1.2375
 fast_visible_time = 0.6
-golden_visible_time = 1.65
+golden_visible_time = 1.2375
 normal_weight = 62
 fast_weight = 10
 golden_weight = 10

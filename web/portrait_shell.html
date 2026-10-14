@@ -246,6 +246,7 @@
 				subscribeLifecycle(onPause, onResume) {
 					pauseCallback = onPause;
 					resumeCallback = onResume;
+					attachDocumentLifecycle();
 					if (platformPaused) finish(pauseCallback);
 				},
 				notifyGameReady() {

@@ -25,6 +25,10 @@ func initialize() -> void:
 		initialized.emit(false)
 		return
 	_bridge.configureVkPayments(str(ProjectSettings.get_setting("monetization/vk/payments_base_url", "")))
+	# Browser lifecycle must work even when the host SDK never completes initialization.
+	_platform_pause_callback = JavaScriptBridge.create_callback(_on_platform_pause)
+	_platform_resume_callback = JavaScriptBridge.create_callback(_on_platform_resume)
+	_bridge.subscribeLifecycle(_platform_pause_callback, _platform_resume_callback)
 	_initialize_callback = JavaScriptBridge.create_callback(_on_initialized)
 	_bridge.initialize(_initialize_callback)
 
@@ -33,9 +37,6 @@ func _on_initialized(arguments: Array) -> void:
 	var data := _decode_callback_dictionary(arguments)
 	_platform = str(data.get("platform", ""))
 	platform_name = _platform if not _platform.is_empty() else "web"
-	_platform_pause_callback = JavaScriptBridge.create_callback(_on_platform_pause)
-	_platform_resume_callback = JavaScriptBridge.create_callback(_on_platform_resume)
-	_bridge.subscribeLifecycle(_platform_pause_callback, _platform_resume_callback)
 	initialized.emit(not _platform.is_empty())
 
 

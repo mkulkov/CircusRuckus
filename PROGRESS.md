@@ -1,5 +1,23 @@
 # PROGRESS.md — Цирковой переполох
 
+## 2026-10-14 — VK релиз 1.0.18 с рекламой и production-аналитикой
+
+- Собран релиз `builds/release/vk/ru_mkulkov_circusruckus_1_0_18.zip` (код 19; SHA-256 `2F1654C37F3C94A2F6F851CC8189B9E3D39A62CCB5DDC9B58515275DA992536C`). Production-аналитика включена экспортом; локальная `config/game_analytics.cfg` восстановлена. VK-рекламный адаптер включён в пресет.
+
+- PASS: Godot import без диагностик; полный `tests/run_tests.gd`; `tests/vk_bridge_test.mjs`; deploy-пакет содержит ровно 9 runtime-файлов. Dev/Prod deployment pending. Фактические показы рекламы, доставка событий аналитики и игровой запуск внутри VK-контейнера не проверялись.
+
+## 2026-10-14 — Темп появления и время показа клоунов
+
+- Во всех пяти фазах бесконечной игры и четырёх тренировочных профилях интервалы спавна уменьшены в 1,15 раза (частота выше на 15%). Окна показа Normal, Golden, Bomb, Clock, Glutton и Drunk уменьшены на 25%; Fast оставлен без изменений.
+- Согласованы значения по умолчанию `RoundProfile` и допустимые нижние границы проверки профилей.
+- PASS: Godot import без диагностик; полный `tests/run_tests.gd`, включая проверки новых параметров фаз и тренировок.
+
+## 2026-10-13 — Lifecycle до завершения VK SDK initialization
+
+- На production URL релиза 1.0.17 браузер подтвердил наличие VK Bridge и незавершённый callback initialization. Подписка Godot на lifecycle происходила после этого callback, поэтому прямое открытие hosting URL оставалось без браузерной паузы.
+- Подписка перенесена до SDK initialization; subscribeLifecycle сразу подключает document/window listeners. Пауза и временный mute больше не зависят от завершения SDK initialization.
+- PASS: регрессия с бесконечно pending VKWebAppInit, VK/OK/Yandex bridge tests, Godot import и полный tests/run_tests.gd, git diff --check. Production пока содержит прежнюю сборку; реальное переключение вкладки/сворачивание с исправленным экспортом отдельно не проверено.
+
 ## 2026-10-13 — VK релиз 1.0.17 с рекламой и production-аналитикой
 
 - Собран релиз `builds/release/vk/ru_mkulkov_circusruckus_1_0_17.zip` (код 18; SHA-256 `152407BB0E405DACEA15C562A3CC283E5D79FE59485C5ECC663EDEF2FBB32C7C`). Production-аналитика включена в релизный экспорт; локальная `config/game_analytics.cfg` восстановлена. VK-рекламный адаптер включён в пресет.

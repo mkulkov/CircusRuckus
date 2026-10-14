@@ -6,7 +6,7 @@ const shell = fs.readFileSync(new URL('../web/portrait_shell.html', import.meta.
 const source = shell.match(/\/\/ A small host API[\s\S]*?<\/script>/)[0].replace(/<\/script>$/, '');
 const flush = async () => { for (let i = 0; i < 8; i++) await new Promise(resolve => setImmediate(resolve)); };
 
-function setup(yandex = false) {
+function setup(yandex = false, pendingInit = false) {
   const calls = [];
   const listeners = new Map();
   const state = { owned: false, confirmed: true, status: 'success', reject: false, networkFailure: false, pending: false, pauses: 0, resumes: 0 };
@@ -33,7 +33,7 @@ function setup(yandex = false) {
     },
     vkBridge: { send: async (method, options) => {
       calls.push({ method, options });
-      if (method === 'VKWebAppInit') return { result: true };
+      if (method === 'VKWebAppInit') return pendingInit ? new Promise(() => {}) : { result: true };
       if (method.includes('Ads') || method.includes('BannerAd')) {
         if (state.adReject) throw new Error('No ads');
         if (state.adPending) return new Promise(resolve => { state.releaseAd = resolve; });
@@ -65,7 +65,7 @@ function setup(yandex = false) {
   const bridge = context.window.ClownSmashPlatform;
   bridge.initialize(() => {});
   bridge.subscribeLifecycle(() => state.pauses++, () => state.resumes++);
-  return { bridge, state, calls, listeners, expireOrder: () => orderTimeout(), expireAd: ms => adTimeouts.get(ms)() };
+  return { bridge, state, calls, listeners, context, expireOrder: () => orderTimeout(), expireAd: ms => adTimeouts.get(ms)() };
 }
 
 // The hosted URL can also be opened directly in a mobile browser without VK Bridge.
@@ -104,6 +104,28 @@ function setup(yandex = false) {
   context.document.visibilityState = 'visible';
   listeners.get('visibilitychange')();
   assert.equal(state.resumes, 2, 'visible tab resumes once without VK Bridge');
+}
+
+// Direct hosting has the VK script, but VKWebAppInit can remain pending forever.
+{
+  const { bridge, state, listeners, context } = setup(false, true);
+  bridge.subscribeLifecycle(() => state.pauses++, () => state.resumes++);
+  let initialized = false;
+  bridge.initialize(() => { initialized = true; });
+  await flush();
+  listeners.get('blur')();
+  context.document.visibilityState = 'hidden';
+  listeners.get('visibilitychange')();
+  assert.equal(state.pauses, 1, 'pending VK initialization cannot block browser pause');
+  context.document.visibilityState = 'visible';
+  listeners.get('visibilitychange')();
+  assert.equal(state.resumes, 0, 'visible but blurred window remains paused');
+  listeners.get('focus')();
+  assert.equal(state.resumes, 1, 'browser return resumes with SDK still pending');
+  assert.equal(initialized, false, 'regression uses genuinely unresolved SDK initialization');
+  const adapter = fs.readFileSync(new URL('../scripts/monetization/web_adapter.gd', import.meta.url), 'utf8');
+  assert.ok(adapter.indexOf('_bridge.subscribeLifecycle(') < adapter.indexOf('_bridge.initialize('),
+    'Godot subscribes before starting SDK initialization');
 }
 
 for (const adResult of [true, false]) {

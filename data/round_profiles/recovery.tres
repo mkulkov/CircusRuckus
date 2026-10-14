@@ -5,15 +5,15 @@
 [resource]
 script = ExtResource("1")
 display_name = "recovery"
-spawn_interval_min = 1
-spawn_interval_max = 1.25
+spawn_interval_min = 0.8695652174
+spawn_interval_max = 1.0869565217
 end_spawn_interval_multiplier = 1
 max_active_characters = 4
 max_decision_targets = 1
 double_spawn_chance = 0
-normal_visible_time = 2.4
+normal_visible_time = 1.8
 fast_visible_time = 0.7
-golden_visible_time = 2.2
+golden_visible_time = 1.65
 normal_weight = 76
 fast_weight = 4
 golden_weight = 8

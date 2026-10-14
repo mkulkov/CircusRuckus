@@ -5,15 +5,15 @@
 [resource]
 script = ExtResource("1")
 display_name = "peak"
-spawn_interval_min = 0.73
-spawn_interval_max = 0.95
+spawn_interval_min = 0.6347826087
+spawn_interval_max = 0.8260869565
 end_spawn_interval_multiplier = 0.92
 max_active_characters = 6
 max_decision_targets = 2
 double_spawn_chance = 0.22
-normal_visible_time = 1.5
+normal_visible_time = 1.125
 fast_visible_time = 0.55
-golden_visible_time = 1.6
+golden_visible_time = 1.2
 normal_weight = 55
 fast_weight = 13
 golden_weight = 12

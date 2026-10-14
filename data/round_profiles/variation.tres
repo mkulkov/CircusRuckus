@@ -5,15 +5,15 @@
 [resource]
 script = ExtResource("1")
 display_name = "variation"
-spawn_interval_min = 0.86
-spawn_interval_max = 1.1
+spawn_interval_min = 0.747826087
+spawn_interval_max = 0.9565217391
 end_spawn_interval_multiplier = 0.96
 max_active_characters = 6
 max_decision_targets = 2
 double_spawn_chance = 0.12
-normal_visible_time = 1.9
+normal_visible_time = 1.425
 fast_visible_time = 0.625
-golden_visible_time = 1.8
+golden_visible_time = 1.35
 normal_weight = 65
 fast_weight = 9
 golden_weight = 10

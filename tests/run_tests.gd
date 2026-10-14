@@ -54,6 +54,7 @@ func _run() -> void:
 	_test_save_data_write_failure_with_open_file()
 	_test_recovery_profile()
 	_test_all_round_profiles_and_assets()
+	_test_round_profile_tuning()
 	await _test_session_rules()
 	await _test_main_scene_loads()
 	await _test_menu_and_navigation_flow()
@@ -548,6 +549,26 @@ func _test_all_round_profiles_and_assets() -> void:
 	_expect_true(load("res://assets/generated/startup_splash_en.png") is Texture2D, "English startup splash loads")
 	_expect_true(load("res://assets/ui/countdown_go_ru.png") is Texture2D, "Russian countdown wordmark loads")
 	_expect_true(load("res://assets/ui/countdown_go_en.png") is Texture2D, "English countdown wordmark loads")
+
+
+func _test_round_profile_tuning() -> void:
+	var expected := {
+		"recovery": [0.8695652174, 1.0869565217, 1.8, 0.7, 1.65],
+		"build": [0.8260869565, 1.0434782609, 1.65, 0.675, 1.5],
+		"variation": [0.747826087, 0.9565217391, 1.425, 0.625, 1.35],
+		"pressure": [0.6782608696, 0.8695652174, 1.2375, 0.6, 1.2375],
+		"peak": [0.6347826087, 0.8260869565, 1.125, 0.55, 1.2],
+	}
+	for phase: String in expected:
+		var profile := load("res://data/round_profiles/%s.tres" % phase) as RoundProfile
+		var values: Array = expected[phase]
+		_expect_true(is_equal_approx(profile.spawn_interval_min, values[0]) and is_equal_approx(profile.spawn_interval_max, values[1]), phase + " spawn frequency is 15% higher")
+		_expect_true(is_equal_approx(profile.normal_visible_time, values[2]) and is_equal_approx(profile.fast_visible_time, values[3]) and is_equal_approx(profile.golden_visible_time, values[4]), phase + " visibility windows reduced except Fast")
+		_expect_true(is_equal_approx(profile.bomb_visible_time, 1.125) and is_equal_approx(profile.clock_visible_time, 1.425) and is_equal_approx(profile.glutton_visible_time, 1.65) and is_equal_approx(profile.drunk_visible_time, 1.65), phase + " special clown windows reduced")
+	for index in range(1, 5):
+		var practice := load("res://data/tutorial/practice_%02d.tres" % index) as RoundProfile
+		_expect_true(is_equal_approx(practice.spawn_interval_min, 0.8695652174) and is_equal_approx(practice.spawn_interval_max, 1.0869565217), "Practice %d spawn frequency is 15% higher" % index)
+		_expect_true(is_equal_approx(practice.normal_visible_time, 1.8) and is_equal_approx(practice.fast_visible_time, 0.7) and is_equal_approx(practice.golden_visible_time, 1.65), "Practice %d visibility windows reduced except Fast" % index)
 
 
 func _test_spawn_director_deterministic_seed() -> void:
