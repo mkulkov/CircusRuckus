@@ -4,7 +4,7 @@
 
 - Собран релиз `builds/release/vk/ru_mkulkov_circusruckus_1_0_18.zip` (код 19; SHA-256 `2F1654C37F3C94A2F6F851CC8189B9E3D39A62CCB5DDC9B58515275DA992536C`). Production-аналитика включена экспортом; локальная `config/game_analytics.cfg` восстановлена. VK-рекламный адаптер включён в пресет.
 
-- PASS: Godot import без диагностик; полный `tests/run_tests.gd`; `tests/vk_bridge_test.mjs`; deploy-пакет содержит ровно 9 runtime-файлов. Dev/Prod deployment pending. Фактические показы рекламы, доставка событий аналитики и игровой запуск внутри VK-контейнера не проверялись.
+- PASS: Godot import без диагностик; полный `tests/run_tests.gd`; `tests/vk_bridge_test.mjs`; deploy-пакет содержит ровно 9 runtime-файлов. Dev version `1791977512` и Prod version `1791979501` загружены. Readback обоих окружений: 9/9 файлов HTTP 200 и SHA-256 совпадает с локальным релизом. Dev: `https://stage-app54768735-e2f846183cd1.pages.vk-apps.ru/index.html`; Prod: `https://prod-app54768735-3c61208caef6.pages-ac.vk-apps.ru/index.html`. Фактические показы рекламы, доставка событий аналитики и игровой запуск внутри VK-контейнера не проверялись.
 
 ## 2026-10-14 — Темп появления и время показа клоунов
 
